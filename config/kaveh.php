@@ -45,6 +45,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fail silently
+    |--------------------------------------------------------------------------
+    |
+    | When true (default), client watchers / track() / flush never throw into
+    | the host app. Set KAVEH_DEBUG=true to Log::debug swallowed errors.
+    |
+    */
+
+    'fail_silently' => env('KAVEH_FAIL_SILENTLY', true),
+
+    'debug' => env('KAVEH_DEBUG', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Role: client | server | both
     |--------------------------------------------------------------------------
     |

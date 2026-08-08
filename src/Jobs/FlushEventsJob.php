@@ -11,6 +11,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\IngestBatch;
+use Kaveh\Support\Silencer;
 use Kaveh\Transport\RemoteTransport;
 
 final class FlushEventsJob implements ShouldQueue
@@ -29,11 +30,21 @@ final class FlushEventsJob implements ShouldQueue
 
     public function handle(RemoteTransport $transport): void
     {
-        $envelopes = array_map(
-            static fn (array $e): EventEnvelope => EventEnvelope::fromArray($e),
-            $this->events
-        );
+        Silencer::run(function () use ($transport): void {
+            $envelopes = [];
+            foreach ($this->events as $payload) {
+                try {
+                    $envelopes[] = EventEnvelope::fromArray($payload);
+                } catch (\Throwable $e) {
+                    Silencer::report($e);
+                }
+            }
 
-        $transport->send(new IngestBatch($envelopes, gmdate('c')));
+            if ($envelopes === []) {
+                return;
+            }
+
+            $transport->send(new IngestBatch($envelopes, gmdate('c')));
+        });
     }
 }

@@ -7,9 +7,10 @@ namespace Kaveh\Logging;
 use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\EventType;
 use Kaveh\KavehManager;
+use Kaveh\Support\Silencer;
 use Monolog\Handler\AbstractProcessingHandler;
-use Monolog\LogRecord;
 use Monolog\Level;
+use Monolog\LogRecord;
 
 /**
  * Ships log records to Kaveh then drops them from local disk growth
@@ -27,21 +28,23 @@ final class KavehMonologHandler extends AbstractProcessingHandler
 
     protected function write(LogRecord $record): void
     {
-        $this->kaveh->record(new EventEnvelope(
-            id: EventEnvelope::generateId(),
-            type: EventType::Log,
-            name: 'log.'.$record->level->toPsrLogLevel(),
-            timestamp: $record->datetime->format('c'),
-            environment: (string) config('kaveh.environment'),
-            hostname: gethostname() ?: 'unknown',
-            context: [
-                'message' => $record->message,
-                'channel' => $record->channel,
-                'context' => $record->context,
-                'extra' => $record->extra,
-            ],
-            tags: ['log', 'monolog'],
-            level: $record->level->toPsrLogLevel(),
-        ));
+        Silencer::run(function () use ($record): void {
+            $this->kaveh->record(new EventEnvelope(
+                id: EventEnvelope::generateId(),
+                type: EventType::Log,
+                name: 'log.'.$record->level->toPsrLogLevel(),
+                timestamp: $record->datetime->format('c'),
+                environment: (string) config('kaveh.environment'),
+                hostname: gethostname() ?: 'unknown',
+                context: [
+                    'message' => $record->message,
+                    'channel' => $record->channel,
+                    'context' => $record->context,
+                    'extra' => $record->extra,
+                ],
+                tags: ['log', 'monolog'],
+                level: $record->level->toPsrLogLevel(),
+            ));
+        });
     }
 }

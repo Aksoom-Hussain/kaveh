@@ -11,6 +11,7 @@ use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\EventType;
 use Kaveh\KavehManager;
 use Kaveh\Support\Redactor;
+use Kaveh\Support\Silencer;
 
 final class JobWatcher
 {
@@ -22,40 +23,44 @@ final class JobWatcher
     public function register(): void
     {
         Event::listen(JobProcessed::class, function (JobProcessed $event): void {
-            $this->kaveh->record(new EventEnvelope(
-                id: EventEnvelope::generateId(),
-                type: EventType::Job,
-                name: $event->job->resolveName(),
-                timestamp: gmdate('c'),
-                environment: (string) config('kaveh.environment'),
-                hostname: gethostname() ?: 'unknown',
-                context: $this->redactor->redact([
-                    'connection' => $event->connectionName,
-                    'queue' => $event->job->getQueue(),
-                    'status' => 'processed',
-                ]),
-                tags: ['job', 'processed'],
-                level: 'info',
-            ));
+            Silencer::run(function () use ($event): void {
+                $this->kaveh->record(new EventEnvelope(
+                    id: EventEnvelope::generateId(),
+                    type: EventType::Job,
+                    name: $event->job->resolveName(),
+                    timestamp: gmdate('c'),
+                    environment: (string) config('kaveh.environment'),
+                    hostname: gethostname() ?: 'unknown',
+                    context: $this->redactor->redact([
+                        'connection' => $event->connectionName,
+                        'queue' => $event->job->getQueue(),
+                        'status' => 'processed',
+                    ]),
+                    tags: ['job', 'processed'],
+                    level: 'info',
+                ));
+            });
         });
 
         Event::listen(JobFailed::class, function (JobFailed $event): void {
-            $this->kaveh->record(new EventEnvelope(
-                id: EventEnvelope::generateId(),
-                type: EventType::Job,
-                name: $event->job->resolveName(),
-                timestamp: gmdate('c'),
-                environment: (string) config('kaveh.environment'),
-                hostname: gethostname() ?: 'unknown',
-                context: $this->redactor->redact([
-                    'connection' => $event->connectionName,
-                    'queue' => $event->job->getQueue(),
-                    'status' => 'failed',
-                    'exception' => $event->exception->getMessage(),
-                ]),
-                tags: ['job', 'failed'],
-                level: 'error',
-            ));
+            Silencer::run(function () use ($event): void {
+                $this->kaveh->record(new EventEnvelope(
+                    id: EventEnvelope::generateId(),
+                    type: EventType::Job,
+                    name: $event->job->resolveName(),
+                    timestamp: gmdate('c'),
+                    environment: (string) config('kaveh.environment'),
+                    hostname: gethostname() ?: 'unknown',
+                    context: $this->redactor->redact([
+                        'connection' => $event->connectionName,
+                        'queue' => $event->job->getQueue(),
+                        'status' => 'failed',
+                        'exception' => $event->exception->getMessage(),
+                    ]),
+                    tags: ['job', 'failed'],
+                    level: 'error',
+                ));
+            });
         });
     }
 }

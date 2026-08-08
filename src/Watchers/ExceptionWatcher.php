@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\EventType;
 use Kaveh\KavehManager;
+use Kaveh\Support\Silencer;
 use Kaveh\Support\Redactor;
 use Throwable;
 
@@ -21,13 +22,15 @@ final class ExceptionWatcher
     public function register(): void
     {
         Event::listen('Illuminate\Log\Events\MessageLogged', function ($event): void {
-            if (($event->level ?? '') !== 'error' && ($event->level ?? '') !== 'critical') {
-                return;
-            }
-            $exception = $event->context['exception'] ?? null;
-            if ($exception instanceof Throwable) {
-                $this->record($exception);
-            }
+            Silencer::run(function () use ($event): void {
+                if (($event->level ?? '') !== 'error' && ($event->level ?? '') !== 'critical') {
+                    return;
+                }
+                $exception = $event->context['exception'] ?? null;
+                if ($exception instanceof Throwable) {
+                    $this->record($exception);
+                }
+            });
         });
     }
 
@@ -62,6 +65,8 @@ final class ExceptionWatcher
                 tags: ['exception'],
                 level: 'error',
             ));
+        } catch (Throwable) {
+            // Never rethrow into the host exception handler.
         } finally {
             $recording = false;
         }

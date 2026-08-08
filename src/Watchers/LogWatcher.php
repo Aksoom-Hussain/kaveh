@@ -10,6 +10,7 @@ use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\EventType;
 use Kaveh\KavehManager;
 use Kaveh\Support\Redactor;
+use Kaveh\Support\Silencer;
 
 final class LogWatcher
 {
@@ -21,24 +22,26 @@ final class LogWatcher
     public function register(): void
     {
         Event::listen(MessageLogged::class, function (MessageLogged $event): void {
-            if (isset($event->context['exception'])) {
-                return;
-            }
+            Silencer::run(function () use ($event): void {
+                if (isset($event->context['exception'])) {
+                    return;
+                }
 
-            $this->kaveh->record(new EventEnvelope(
-                id: EventEnvelope::generateId(),
-                type: EventType::Log,
-                name: 'log.'.$event->level,
-                timestamp: gmdate('c'),
-                environment: (string) config('kaveh.environment'),
-                hostname: gethostname() ?: 'unknown',
-                context: $this->redactor->redact([
-                    'message' => $event->message,
-                    'context' => $event->context,
-                ]),
-                tags: ['log', $event->level],
-                level: $event->level,
-            ));
+                $this->kaveh->record(new EventEnvelope(
+                    id: EventEnvelope::generateId(),
+                    type: EventType::Log,
+                    name: 'log.'.$event->level,
+                    timestamp: gmdate('c'),
+                    environment: (string) config('kaveh.environment'),
+                    hostname: gethostname() ?: 'unknown',
+                    context: $this->redactor->redact([
+                        'message' => $event->message,
+                        'context' => $event->context,
+                    ]),
+                    tags: ['log', $event->level],
+                    level: $event->level,
+                ));
+            });
         });
     }
 }

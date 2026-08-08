@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\EventType;
 use Kaveh\KavehManager;
+use Kaveh\Support\Silencer;
 use Kaveh\Support\Redactor;
 
 final class RequestWatcher
@@ -22,42 +23,44 @@ final class RequestWatcher
     public function register(): void
     {
         Event::listen(RequestHandled::class, function (RequestHandled $event): void {
-            $request = $event->request;
-            $path = '/'.ltrim($request->path(), '/');
+            Silencer::run(function () use ($event): void {
+                $request = $event->request;
+                $path = '/'.ltrim($request->path(), '/');
 
-            if ($this->shouldIgnore($path)) {
-                return;
-            }
+                if ($this->shouldIgnore($path)) {
+                    return;
+                }
 
-            $response = $event->response;
-            $start = defined('LARAVEL_START') ? LARAVEL_START : null;
-            $duration = $start ? (microtime(true) - $start) * 1000 : null;
+                $response = $event->response;
+                $start = defined('LARAVEL_START') ? LARAVEL_START : null;
+                $duration = $start ? (microtime(true) - $start) * 1000 : null;
 
-            $headers = [];
-            foreach ($request->headers->all() as $name => $values) {
-                $headers[$name] = implode(', ', $values);
-            }
+                $headers = [];
+                foreach ($request->headers->all() as $name => $values) {
+                    $headers[$name] = implode(', ', $values);
+                }
 
-            $this->kaveh->record(new EventEnvelope(
-                id: EventEnvelope::generateId(),
-                type: EventType::Request,
-                name: $request->method().' '.$request->path(),
-                timestamp: gmdate('c'),
-                environment: (string) config('kaveh.environment'),
-                hostname: gethostname() ?: 'unknown',
-                traceId: $request->headers->get('X-Request-Id'),
-                context: $this->redactor->redact([
-                    'method' => $request->method(),
-                    'uri' => $request->getRequestUri(),
-                    'status' => $response->getStatusCode(),
-                    'ip' => $request->ip(),
-                    'headers' => $this->redactor->redactHeaders($headers),
-                    'input' => $request->except(['password', 'password_confirmation', 'token']),
-                ]),
-                tags: ['request', 'status:'.$response->getStatusCode()],
-                level: $response->getStatusCode() >= 500 ? 'error' : 'info',
-                durationMs: $duration,
-            ));
+                $this->kaveh->record(new EventEnvelope(
+                    id: EventEnvelope::generateId(),
+                    type: EventType::Request,
+                    name: $request->method().' '.$request->path(),
+                    timestamp: gmdate('c'),
+                    environment: (string) config('kaveh.environment'),
+                    hostname: gethostname() ?: 'unknown',
+                    traceId: $request->headers->get('X-Request-Id'),
+                    context: $this->redactor->redact([
+                        'method' => $request->method(),
+                        'uri' => $request->getRequestUri(),
+                        'status' => $response->getStatusCode(),
+                        'ip' => $request->ip(),
+                        'headers' => $this->redactor->redactHeaders($headers),
+                        'input' => $request->except(['password', 'password_confirmation', 'token']),
+                    ]),
+                    tags: ['request', 'status:'.$response->getStatusCode()],
+                    level: $response->getStatusCode() >= 500 ? 'error' : 'info',
+                    durationMs: $duration,
+                ));
+            });
         });
     }
 

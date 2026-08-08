@@ -25,6 +25,7 @@ use Kaveh\Server\Models\Organization;
 use Kaveh\Server\Models\Project;
 use Kaveh\Storage\LocalEventStore;
 use Kaveh\Support\Redactor;
+use Kaveh\Support\Silencer;
 use Kaveh\Transport\EventBuffer;
 use Kaveh\Transport\RemoteTransport;
 use Kaveh\Watchers\ExceptionWatcher;
@@ -132,10 +133,12 @@ class KavehServiceProvider extends ServiceProvider
                 config(['kaveh.slow_query_ms' => (float) $options['slow']]);
             }
 
-            $watcher = $this->app->make($class);
-            if (method_exists($watcher, 'register')) {
-                $watcher->register();
-            }
+            Silencer::run(function () use ($class): void {
+                $watcher = $this->app->make($class);
+                if (method_exists($watcher, 'register')) {
+                    $watcher->register();
+                }
+            });
         }
     }
 
@@ -164,7 +167,7 @@ class KavehServiceProvider extends ServiceProvider
 
         foreach ($map as $key => $class) {
             if ($watchers[$key] ?? false) {
-                $this->app->make($class)->register();
+                Silencer::run(fn () => $this->app->make($class)->register());
             }
         }
     }
