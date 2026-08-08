@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Kaveh\Server\Http\Controllers;
 
 use Kaveh\Server\Models\EventRecord;
+use Kaveh\Server\Models\Project;
+use Kaveh\Server\Support\DashboardInsights;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -179,6 +182,34 @@ class MetricsController extends Controller
             'series' => $series,
             'avg_duration_ms' => $avgDuration,
         ]);
+    }
+
+    /**
+     * Pulse-style dashboard card aggregates for the selected project.
+     */
+    public function insights(Request $request): JsonResponse
+    {
+        $projectId = (int) $request->integer('project_id');
+        if ($projectId <= 0) {
+            return response()->json([
+                'available' => false,
+                'message' => 'Select a project.',
+            ]);
+        }
+
+        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
+        abort_unless(
+            Project::query()->whereKey($projectId)->whereIn('organization_id', $orgIds)->exists(),
+            403
+        );
+
+        $rangeSeconds = (int) $request->integer('range', 3600);
+        $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
+        $slowMs = max(100, min((int) $request->integer('slow_ms', 1000), 60000));
+
+        return response()->json(
+            (new DashboardInsights($projectId, $rangeSeconds, $slowMs))->toArray()
+        );
     }
 
     /**

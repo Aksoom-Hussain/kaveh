@@ -33,6 +33,7 @@ Route::middleware('kaveh')->group(function () {
         Route::get('/pulse', [MetricsController::class, 'pulse'])->name('pulse');
         Route::get('/events', [MetricsController::class, 'events'])->name('events');
         Route::get('/system', [MetricsController::class, 'system'])->name('system');
+        Route::get('/insights', [MetricsController::class, 'insights'])->name('insights');
     });
     Route::prefix('api/live')->name('live.')->group(function () {
         Route::get('/overview', [DashboardController::class, 'liveOverview'])->name('overview');
