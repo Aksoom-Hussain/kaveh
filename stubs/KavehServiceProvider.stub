@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\ServiceProvider;
+
+class KavehServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        $this->gate();
+    }
+
+    /**
+     * Register the Kaveh gate.
+     *
+     * This gate determines who can access the Kaveh dashboard
+     * (same pattern as Telescope's viewTelescope / Pulse's viewPulse).
+     *
+     * @see https://github.com/laravel/telescope
+     * @see https://github.com/laravel/pulse
+     */
+    protected function gate(): void
+    {
+        Gate::define('viewKaveh', function ($user) {
+            // Restrict by email in production (Telescope/Pulse style):
+            // return in_array($user->email, [
+            //     'admin@example.com',
+            // ]);
+
+            return true;
+        });
+    }
+}

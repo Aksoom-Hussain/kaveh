@@ -1,0 +1,51 @@
+{
+    "name": "aksoom-hussain/kaveh",
+    "description": "Kaveh — Telescope/Pulse-inspired Laravel monitoring (client + self-hosted server in one package)",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "monitoring", "telescope", "pulse", "observability", "logging", "rag"],
+    "authors": [
+        {
+            "name": "Aksoom-Hussain",
+            "homepage": "https://github.com/Aksoom-Hussain"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "illuminate/database": "^11.0|^12.0|^13.0",
+        "illuminate/queue": "^11.0|^12.0|^13.0",
+        "illuminate/console": "^11.0|^12.0|^13.0",
+        "illuminate/routing": "^11.0|^12.0|^13.0",
+        "illuminate/view": "^11.0|^12.0|^13.0",
+        "illuminate/auth": "^11.0|^12.0|^13.0",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0|^10.0|^11.0",
+        "phpunit/phpunit": "^11.0|^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kaveh\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Kaveh\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Kaveh\\KavehServiceProvider"
+            ],
+            "aliases": {
+                "Kaveh": "Kaveh\\Facades\\Kaveh"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

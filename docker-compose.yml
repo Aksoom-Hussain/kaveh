@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: kaveh
+      POSTGRES_USER: kaveh
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - kaveh_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kaveh -d kaveh"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  server:
+    build:
+      context: ./packages/server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8080
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: kaveh
+      DB_USERNAME: kaveh
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+      KAVEH_ROLE: both
+      KAVEH_MODE: remote
+      KAVEH_SERVER_ENABLED: "true"
+      KAVEH_SERVER_URL: http://localhost:8080
+      KAVEH_OPENAI_API_KEY: ${KAVEH_OPENAI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./packages/server:/var/www/html
+      - ./:/opt/kaveh-package
+
+volumes:
+  kaveh_pg:

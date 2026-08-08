@@ -1,0 +1,13 @@
+/vendor/
+/node_modules/
+.phpunit.result.cache
+.phpunit.cache
+composer.lock
+.idea/
+.vscode/
+*.swp
+.DS_Store
+/auth.json
+.env
+.env.*
+!.env.example
