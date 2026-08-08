@@ -2,7 +2,10 @@
 
 One Composer package for Laravel monitoring — **client and server in the same package**.
 
-Inspired by Telescope + Pulse. Ship telemetry off production disks, or keep it local.
+Inspired by [Telescope](https://github.com/laravel/telescope) + [Pulse](https://github.com/laravel/pulse). Ship telemetry off production disks, or keep it local.
+
+- Packagist: https://packagist.org/packages/aksoom-hussain/kaveh
+- Source: https://github.com/Aksoom-Hussain/kaveh
 
 ## Install
 
@@ -11,12 +14,12 @@ composer require aksoom-hussain/kaveh
 php artisan kaveh:install
 ```
 
-`kaveh:install` asks what you need and writes `.env` + `config/kaveh.php`:
+`kaveh:install` asks what you need and writes `.env` + `config/kaveh.php`, and publishes `App\Providers\KavehServiceProvider` (`viewKaveh` gate).
 
 | Role | What you get |
 |------|----------------|
 | `client` | Watchers + `Kaveh::track()` + local/remote modes |
-| `server` | Ingest API + dashboard + alerts + event RAG |
+| `server` | Ingest API + dashboard + alerts + event RAG + Pulse metrics API |
 | `both` | Full double-edged install on one app |
 
 ### Non-interactive
@@ -45,37 +48,18 @@ KAVEH_ROLE=client
 KAVEH_MODE=remote
 KAVEH_SERVER_URL=https://kaveh.example.com
 KAVEH_API_KEY=kv_xxx
+KAVEH_USE_QUEUE=true
 ```
 
 ## Server usage
 
 After `--role=server` (or `both`):
 
-- Dashboard: `/kaveh/login`
+- Dashboard: `/kaveh/login` (`KAVEH_PATH`)
 - Ingest: `POST /api/v1/ingest` with `Authorization: Bearer kv_…`
-
-## Publish to Packagist
-
-This directory (`Kaveh/`) **is** the package root (`composer.json` → `aksoom-hussain/kaveh`).
-
-```bash
-git tag v0.1.0
-# submit https://packagist.org/packages/submit
-```
-
-## Local example app
-
-Use the root [`demo/`](../demo) Laravel app:
-
-```bash
-cd ../demo
-php artisan serve
-```
-
-See [`demo/README.md`](../demo/README.md) for credentials and try-it steps.
-
-`packages/server` is an older thin host; prefer `demo/` for testing.
+- Metrics: `GET /kaveh/api/metrics/pulse` (session) — Pulse graphs when `laravel/pulse` is present
+- Gate: edit `App\Providers\KavehServiceProvider` → `viewKaveh`
 
 ## Docs
 
-See repo [`kb/`](../kb/index.md) and docs RAG under [`rag/`](../rag/).
+Full docs live in the monorepo knowledge base (`kb/`) when developing from source. Packagist installs use this README + inline config comments.
