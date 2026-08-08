@@ -32,6 +32,11 @@ Route::middleware('kaveh')->group(function () {
     Route::prefix('api/metrics')->name('metrics.')->group(function () {
         Route::get('/pulse', [MetricsController::class, 'pulse'])->name('pulse');
         Route::get('/events', [MetricsController::class, 'events'])->name('events');
+        Route::get('/system', [MetricsController::class, 'system'])->name('system');
+    });
+    Route::prefix('api/live')->name('live.')->group(function () {
+        Route::get('/overview', [DashboardController::class, 'liveOverview'])->name('overview');
+        Route::get('/events', [DashboardController::class, 'liveEvents'])->name('events');
     });
     Route::get('/events', [DashboardController::class, 'events'])->name('events.index');
     Route::get('/events/{event}', [DashboardController::class, 'showEvent'])->name('events.show');
@@ -40,6 +45,8 @@ Route::middleware('kaveh')->group(function () {
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::post('/projects/{project}/keys', [ProjectController::class, 'createKey'])->name('projects.keys.create');
     Route::delete('/projects/{project}/keys/{apiKey}', [ProjectController::class, 'revokeKey'])->name('projects.keys.revoke');
+    Route::delete('/projects/{project}/keys/{apiKey}/force', [ProjectController::class, 'destroyKey'])->name('projects.keys.destroy');
+    Route::post('/onboarding/dismiss', [ProjectController::class, 'dismissOnboarding'])->name('onboarding.dismiss');
 
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
     Route::post('/alerts', [AlertController::class, 'store'])->name('alerts.store');

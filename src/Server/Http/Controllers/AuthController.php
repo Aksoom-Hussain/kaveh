@@ -4,6 +4,7 @@ namespace Kaveh\Server\Http\Controllers;
 
 use Kaveh\Server\Models\Organization;
 use Kaveh\Server\Models\Project;
+use Kaveh\Server\Support\ProjectOnboarding;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,6 +37,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        ProjectController::maybeFlashFirstLoginOnboarding();
+
         return redirect()->intended(route('kaveh.dashboard'));
     }
 
@@ -62,13 +65,15 @@ class AuthController extends Controller
         ]);
         $org->users()->attach($user->id, ['role' => 'owner']);
 
-        Project::query()->create([
+        $project = Project::query()->create([
             'organization_id' => $org->id,
             'name' => 'Default',
             'slug' => 'default',
         ]);
 
         Auth::login($user);
+        ProjectOnboarding::flash($project, 'default');
+        ProjectOnboarding::markSeen((int) $user->id);
 
         return redirect()->route('kaveh.dashboard');
     }

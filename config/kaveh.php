@@ -91,8 +91,27 @@ return [
     ],
 
     'sample_rate' => (float) env('KAVEH_SAMPLE_RATE', 1.0),
-    'max_context_bytes' => (int) env('KAVEH_MAX_CONTEXT_BYTES', 32768),
+    'max_context_bytes' => (int) env('KAVEH_MAX_CONTEXT_BYTES', 65536),
     'max_string_length' => (int) env('KAVEH_MAX_STRING_LENGTH', 2000),
+
+    /*
+    |--------------------------------------------------------------------------
+    | System check worker (Pulse-like)
+    |--------------------------------------------------------------------------
+    |
+    | Run `php artisan kaveh:check` under supervisord / systemd on each app
+    | host to ship CPU, memory, and disk gauges to the Kaveh server.
+    |
+    */
+
+    'check' => [
+        'enabled' => env('KAVEH_CHECK_ENABLED', true),
+        'interval' => (int) env('KAVEH_CHECK_INTERVAL', 15),
+        'disks' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('KAVEH_CHECK_DISKS', '/')),
+        ))),
+    ],
 
     'local' => [
         'connection' => env('KAVEH_DB_CONNECTION'),
@@ -140,6 +159,22 @@ return [
 
         RequestWatcher::class => [
             'enabled' => env('KAVEH_WATCH_REQUESTS', true),
+            // Telescope-compatible size limit for JSON / text response bodies (KB).
+            'size_limit' => (int) env('KAVEH_REQUEST_SIZE_LIMIT', 64),
+            'ignore_http_methods' => [],
+            'ignore_status_codes' => [],
+            'hidden_request_parameters' => [
+                'password',
+                'password_confirmation',
+                'token',
+                '_token',
+                'current_password',
+            ],
+            'hidden_response_parameters' => [
+                'password',
+                'token',
+                'authorization',
+            ],
         ],
 
         QueryWatcher::class => [

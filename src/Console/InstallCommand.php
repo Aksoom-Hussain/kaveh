@@ -76,6 +76,10 @@ final class InstallCommand extends Command
             $this->line('  Ingest: <fg=cyan>/api/v1/ingest</>');
             $this->line('  Gate: edit <fg=gray>App\\Providers\\KavehServiceProvider</> → viewKaveh (like Telescope/Pulse)');
         }
+        if (in_array($role, ['client', 'both'], true)) {
+            $this->line('  Queue: <fg=cyan>php artisan queue:work</> (ship events)');
+            $this->line('  Host stats: <fg=cyan>php artisan kaveh:check</> under supervisord (CPU / memory / disk)');
+        }
         $this->newLine();
         $this->line('Config published to <fg=gray>config/kaveh.php</> and <fg=gray>.env</>.');
 

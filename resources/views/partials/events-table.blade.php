@@ -52,7 +52,7 @@
             </td>
             <td class="mono">{{ $event->durationLabel() }}</td>
             <td class="muted" title="{{ optional($event->occurred_at)?->toDateTimeString() }}">
-                {{ optional($event->occurred_at)?->diffForHumans(short: true) ?: '—' }}
+                {{ optional($event->occurred_at)?->diffForHumans(null, true) ?: '—' }}
             </td>
             <td class="event-go">
                 <a href="{{ route('kaveh.events.show', $event) }}" aria-label="Open event" onclick="event.stopPropagation()">&rarr;</a>

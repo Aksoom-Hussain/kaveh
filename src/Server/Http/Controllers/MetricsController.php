@@ -73,6 +73,7 @@ class MetricsController extends Controller
 
         return response()->json([
             'available' => true,
+            'source' => 'monitor_host',
             'period' => $period,
             'range' => $rangeSeconds,
             'units' => [
@@ -98,26 +99,35 @@ class MetricsController extends Controller
 
     public function events(Request $request): JsonResponse
     {
-        $hours = max(1, min((int) $request->integer('hours', 24), 168));
-        $since = now()->subHours($hours);
+        $rangeSeconds = (int) $request->integer('range', 0);
+        if ($rangeSeconds <= 0) {
+            $hours = max(1, min((int) $request->integer('hours', 24), 168));
+            $rangeSeconds = $hours * 3600;
+        }
+        $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
+        $since = now()->subSeconds($rangeSeconds);
         $projectId = $request->integer('project_id') ?: null;
 
+        // Finer buckets for short windows so project charts look like traffic, not one flat hour.
+        $bucket = $rangeSeconds <= 3600 * 6 ? 'minute' : 'hour';
         $driver = DB::connection()->getDriverName();
-        $bucketExpr = match ($driver) {
-            'sqlite' => "strftime('%Y-%m-%d %H:00:00', occurred_at)",
-            'pgsql' => "to_char(date_trunc('hour', occurred_at), 'YYYY-MM-DD HH24:00:00')",
+        $bucketExpr = match ([$driver, $bucket]) {
+            ['sqlite', 'minute'] => "strftime('%Y-%m-%d %H:%M:00', occurred_at)",
+            ['sqlite', 'hour'] => "strftime('%Y-%m-%d %H:00:00', occurred_at)",
+            ['pgsql', 'minute'] => "to_char(date_trunc('minute', occurred_at), 'YYYY-MM-DD HH24:MI:00')",
+            ['pgsql', 'hour'] => "to_char(date_trunc('hour', occurred_at), 'YYYY-MM-DD HH24:00:00')",
+            ['mysql', 'minute'], ['mariadb', 'minute'] => "DATE_FORMAT(occurred_at, '%Y-%m-%d %H:%i:00')",
             default => "DATE_FORMAT(occurred_at, '%Y-%m-%d %H:00:00')",
         };
 
-        $query = EventRecord::query()
-            ->selectRaw("{$bucketExpr} as bucket, type, COUNT(*) as aggregate, AVG(duration_ms) as avg_ms")
+        $base = EventRecord::query()
             ->where('occurred_at', '>=', $since)
+            ->when($projectId, fn ($q) => $q->where('project_id', $projectId));
+
+        $query = (clone $base)
+            ->selectRaw("{$bucketExpr} as bucket, type, COUNT(*) as aggregate, AVG(duration_ms) as avg_ms")
             ->groupByRaw('bucket, type')
             ->orderBy('bucket');
-
-        if ($projectId) {
-            $query->where('project_id', $projectId);
-        }
 
         $rows = $query->get();
 
@@ -140,18 +150,145 @@ class MetricsController extends Controller
             }
         }
 
-        $totals = EventRecord::query()
+        $totals = (clone $base)
             ->selectRaw('type, COUNT(*) as aggregate')
-            ->where('occurred_at', '>=', $since)
-            ->when($projectId, fn ($q) => $q->where('project_id', $projectId))
             ->groupBy('type')
             ->pluck('aggregate', 'type');
 
+        $failedJobs = (clone $base)->where('type', 'job')->where('level', 'error')->count();
+        $avgRequestMs = (clone $base)->where('type', 'request')->avg('duration_ms');
+
         return response()->json([
-            'hours' => $hours,
+            'available' => true,
+            'source' => 'project',
+            'project_id' => $projectId,
+            'hours' => (int) ceil($rangeSeconds / 3600),
+            'range' => $rangeSeconds,
+            'bucket' => $bucket,
             'totals' => $totals,
+            'latest' => [
+                'requests' => (int) ($totals['request'] ?? 0),
+                'exceptions' => (int) ($totals['exception'] ?? 0),
+                'jobs' => (int) ($totals['job'] ?? 0),
+                'failed_jobs' => $failedJobs,
+                'queries' => (int) ($totals['query'] ?? 0),
+                'custom' => (int) ($totals['custom'] ?? 0),
+                'system' => (int) ($totals['system'] ?? 0),
+                'avg_request_ms' => $avgRequestMs !== null ? round((float) $avgRequestMs, 1) : null,
+            ],
             'series' => $series,
             'avg_duration_ms' => $avgDuration,
+        ]);
+    }
+
+    /**
+     * Remote app-host gauges shipped by `php artisan kaveh:check`.
+     */
+    public function system(Request $request): JsonResponse
+    {
+        $rangeSeconds = (int) $request->integer('range', 3600);
+        $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
+        $since = now()->subSeconds($rangeSeconds);
+        $projectId = $request->integer('project_id') ?: null;
+
+        if (! $projectId) {
+            return response()->json([
+                'available' => false,
+                'message' => 'Select a project to view remote host stats.',
+                'hosts' => [],
+                'series' => (object) [],
+            ]);
+        }
+
+        $rows = EventRecord::query()
+            ->where('project_id', $projectId)
+            ->where('type', 'system')
+            ->where('name', 'system.stats')
+            ->where('occurred_at', '>=', $since)
+            ->orderBy('occurred_at')
+            ->get(['occurred_at', 'hostname', 'context']);
+
+        if ($rows->isEmpty()) {
+            return response()->json([
+                'available' => false,
+                'message' => 'No remote host stats yet. Run php artisan kaveh:check on your app servers.',
+                'project_id' => $projectId,
+                'range' => $rangeSeconds,
+                'hosts' => [],
+                'series' => (object) [],
+                'latest' => (object) [],
+            ]);
+        }
+
+        $byHost = [];
+        foreach ($rows as $row) {
+            $host = $row->hostname ?: 'unknown';
+            $ctx = is_array($row->context) ? $row->context : [];
+            $t = optional($row->occurred_at)?->utc()->toIso8601String() ?? gmdate('c');
+
+            $byHost[$host]['cpu'][] = ['t' => $t, 'v' => isset($ctx['cpu_percent']) ? (float) $ctx['cpu_percent'] : null];
+            $byHost[$host]['memory'][] = ['t' => $t, 'v' => isset($ctx['memory_percent']) ? (float) $ctx['memory_percent'] : null];
+            $byHost[$host]['memory_mb'][] = ['t' => $t, 'v' => isset($ctx['memory_used_mb']) ? (float) $ctx['memory_used_mb'] : null];
+            $byHost[$host]['disk'][] = ['t' => $t, 'v' => isset($ctx['disk_percent']) ? (float) $ctx['disk_percent'] : null];
+            $byHost[$host]['disk_used_gb'][] = ['t' => $t, 'v' => isset($ctx['disk_used_gb']) ? (float) $ctx['disk_used_gb'] : null];
+            $byHost[$host]['load_1'][] = ['t' => $t, 'v' => isset($ctx['load_1']) ? (float) $ctx['load_1'] : null];
+
+            $byHost[$host]['latest'] = [
+                'hostname' => $host,
+                'at' => $t,
+                'cpu_percent' => $ctx['cpu_percent'] ?? null,
+                'memory_percent' => $ctx['memory_percent'] ?? null,
+                'memory_used_mb' => $ctx['memory_used_mb'] ?? null,
+                'memory_total_mb' => $ctx['memory_total_mb'] ?? null,
+                'disk_percent' => $ctx['disk_percent'] ?? null,
+                'disk_used_gb' => $ctx['disk_used_gb'] ?? null,
+                'disk_total_gb' => $ctx['disk_total_gb'] ?? null,
+                'disk_free_gb' => $ctx['disk_free_gb'] ?? null,
+                'load_1' => $ctx['load_1'] ?? null,
+                'disks' => $ctx['disks'] ?? [],
+            ];
+        }
+
+        // Prefer the most recently reporting host for the headline gauges.
+        $hosts = [];
+        $primary = null;
+        foreach ($byHost as $host => $data) {
+            $latest = $data['latest'];
+            $hosts[] = $latest;
+            if ($primary === null || ($latest['at'] ?? '') > ($primary['at'] ?? '')) {
+                $primary = $latest;
+            }
+        }
+
+        $primaryHost = $primary['hostname'] ?? array_key_first($byHost);
+        $series = $byHost[$primaryHost] ?? [];
+        unset($series['latest']);
+
+        // Drop null-only points for cleaner charts.
+        foreach ($series as $key => $points) {
+            $series[$key] = array_values(array_map(
+                static fn (array $p): array => ['t' => $p['t'], 'v' => $p['v']],
+                array_filter($points, static fn (array $p): bool => $p['v'] !== null)
+            ));
+        }
+
+        return response()->json([
+            'available' => true,
+            'source' => 'project_hosts',
+            'project_id' => $projectId,
+            'range' => $rangeSeconds,
+            'hostname' => $primaryHost,
+            'hosts' => $hosts,
+            'series' => $series,
+            'latest' => $primary ?? (object) [],
+            'units' => [
+                'cpu' => '%',
+                'memory' => '%',
+                'memory_mb' => 'MB',
+                'disk' => '%',
+                'disk_used_gb' => 'GB',
+                'load_1' => 'load',
+            ],
         ]);
     }
 

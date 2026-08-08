@@ -36,7 +36,7 @@ final class ShareDashboardFilters
             return false;
         }
 
-        if ($request->ajax() || $request->expectsJson() || $request->routeIs('kaveh.metrics.*')) {
+        if ($request->ajax() || $request->expectsJson() || $request->routeIs('kaveh.metrics.*', 'kaveh.live.*')) {
             return false;
         }
 

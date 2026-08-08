@@ -12,7 +12,7 @@ php artisan migrate
 
 Open `https://your-host/kaveh/login`, register the first user, then:
 
-1. **Projects** → create a project (e.g. `Emailwish`)
+1. **Projects** → create a project (e.g. `Shop`)
 2. **Issue API key** → copy the `kv_…` value once
 3. Give that key to each client app
 

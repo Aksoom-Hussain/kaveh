@@ -5,6 +5,7 @@
 
 <div class="panel">
     <h2>Create project</h2>
+    <p style="color:var(--muted);margin-top:0">Creating a project issues an API key and shows install commands for your app.</p>
     <form method="post" action="{{ route('kaveh.projects.store') }}" class="row">
         @csrf
         <div class="field"><label>Name</label><input name="name" required></div>
@@ -27,14 +28,18 @@
                 <td>{{ $key->name }}</td>
                 <td><code>{{ $key->key_prefix }}…</code></td>
                 <td>{{ optional($key->last_used_at)?->diffForHumans() ?: 'never' }}</td>
-                <td>
+                <td style="white-space:nowrap">
                     @if(!$key->revoked_at)
-                    <form method="post" action="{{ route('kaveh.projects.keys.revoke', [$project, $key]) }}">
+                    <form method="post" action="{{ route('kaveh.projects.keys.revoke', [$project, $key]) }}" style="display:inline">
                         @csrf @method('DELETE')
                         <button type="submit" style="background:var(--danger);color:#fff">Revoke</button>
                     </form>
                     @else
                         <span class="badge">revoked</span>
+                        <form method="post" action="{{ route('kaveh.projects.keys.destroy', [$project, $key]) }}" style="display:inline;margin-left:.35rem">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn-ghost" onclick="return confirm('Permanently delete this revoked key?')">Delete</button>
+                        </form>
                     @endif
                 </td>
             </tr>

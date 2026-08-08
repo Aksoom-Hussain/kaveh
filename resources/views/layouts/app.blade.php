@@ -138,6 +138,45 @@
             background: var(--accent-dim);
             color: var(--accent);
         }
+        .live-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.28rem 0.65rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(14, 21, 28, 0.8);
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+        }
+        .live-toggle:hover { color: var(--text); border-color: rgba(61,214,198,.35); }
+        .live-toggle[aria-pressed="true"] {
+            background: var(--accent-dim);
+            border-color: rgba(61,214,198,.45);
+            color: var(--accent);
+        }
+        .live-toggle .live-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 999px;
+            background: currentColor;
+            opacity: 0.55;
+        }
+        .live-toggle[aria-pressed="true"] .live-dot {
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(61,214,198,.7);
+            animation: kaveh-live-pulse 1.4s ease-out infinite;
+        }
+        @keyframes kaveh-live-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(61,214,198,.55); }
+            70% { box-shadow: 0 0 0 8px rgba(61,214,198,0); }
+            100% { box-shadow: 0 0 0 0 rgba(61,214,198,0); }
+        }
+        .live-toggle .live-label::before { content: 'Paused'; }
+        .live-toggle[aria-pressed="true"] .live-label::before { content: 'Live'; }
 
         main {
             padding: 1.5rem 2rem 2.5rem;
@@ -181,6 +220,8 @@
         .badge.type-job { background: rgba(244,193,93,.12); color: var(--warn); }
         .badge.type-query { background: rgba(110,168,254,.12); color: #6ea8fe; }
         .badge.type-log { background: #243040; color: var(--muted); }
+        .badge.type-system { background: rgba(52,211,153,.12); color: #34d399; }
+        .badge.type-custom { background: rgba(192,132,252,.12); color: #c084fc; }
         .muted { color: var(--muted); }
         .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; }
 
@@ -298,6 +339,114 @@
             padding: 0.75rem 1rem;
             border-radius: 8px;
             margin-bottom: 1rem;
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+            padding: 0.45rem 0.8rem;
+            border-radius: 8px;
+            text-decoration: none;
+        }
+        .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .onboard-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(4, 8, 12, 0.72);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+        }
+        .onboard-modal {
+            width: min(640px, 100%);
+            max-height: min(90vh, 820px);
+            overflow: auto;
+            background: #121b24;
+            border: 1px solid rgba(61,214,198,.35);
+            border-radius: 16px;
+            padding: 1.35rem 1.4rem 1.25rem;
+            box-shadow: 0 24px 60px rgba(0,0,0,.45);
+        }
+        .onboard-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            align-items: start;
+            margin-bottom: 1.1rem;
+        }
+        .onboard-eyebrow {
+            color: var(--accent);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 0 0 0.35rem;
+        }
+        .onboard-head h2 {
+            font-family: "Instrument Serif", Georgia, serif;
+            font-size: 1.65rem;
+            font-weight: 400;
+            margin: 0 0 0.4rem;
+        }
+        .onboard-lead { color: var(--muted); margin: 0; font-size: 0.95rem; line-height: 1.45; }
+        .onboard-close {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
+            font-size: 1.25rem;
+            line-height: 1;
+            padding: 0;
+        }
+        .onboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.85rem;
+            margin-bottom: 0.85rem;
+        }
+        @media (max-width: 640px) {
+            .onboard-grid { grid-template-columns: 1fr; }
+        }
+        .onboard-field { margin-bottom: 0.85rem; }
+        .onboard-copyrow {
+            display: flex;
+            gap: 0.5rem;
+            align-items: start;
+            background: #0a0f14;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.65rem 0.7rem;
+        }
+        .onboard-copyrow.stack { flex-direction: column; }
+        .onboard-copyrow code, .onboard-copyrow pre {
+            flex: 1;
+            margin: 0;
+            background: transparent;
+            padding: 0;
+            font-size: 0.82rem;
+            line-height: 1.45;
+            word-break: break-all;
+        }
+        .onboard-steps {
+            margin: 0.4rem 0 1.1rem;
+            padding-left: 1.2rem;
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.55;
+        }
+        .onboard-steps code { color: var(--text); }
+        .onboard-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            align-items: center;
         }
         .auth {
             max-width: 420px;
@@ -439,6 +588,16 @@
                     <a href="{{ $rangeUrl }}" class="{{ ($kavehRange ?? '24h') === $key ? 'active' : '' }}">{{ $meta['label'] }}</a>
                 @endforeach
             </div>
+            <button
+                type="button"
+                id="kaveh-live-toggle"
+                class="live-toggle"
+                aria-pressed="false"
+                title="Auto-refresh page content (like Telescope)"
+            >
+                <span class="live-dot" aria-hidden="true"></span>
+                <span class="live-label"></span>
+            </button>
         </div>
         <form method="post" action="{{ route('kaveh.logout') }}">
             @csrf
@@ -450,9 +609,10 @@
     @if(session('status'))
         <div class="flash">{{ session('status') }}</div>
     @endif
-    @if(session('api_key_plain'))
+    @if(session('api_key_plain') && ! session('kaveh_onboarding'))
         <div class="flash">New API key (copy now): <code>{{ session('api_key_plain') }}</code></div>
     @endif
+    @include('kaveh::partials.onboarding')
     @yield('content')
 </main>
 @else
@@ -460,6 +620,45 @@
     @yield('content')
 </main>
 @endauth
+<script>
+(() => {
+  const KEY = 'kaveh.livePoll';
+  const INTERVAL_MS = 5000;
+  const btn = document.getElementById('kaveh-live-toggle');
+  if (!btn) return;
+
+  window.KavehLive = window.KavehLive || {
+    enabled: false,
+    handlers: [],
+    on(fn) { this.handlers.push(fn); return () => { this.handlers = this.handlers.filter(h => h !== fn); }; },
+    async tick() {
+      for (const fn of this.handlers) {
+        try { await fn(); } catch (e) { console.error(e); }
+      }
+      window.dispatchEvent(new CustomEvent('kaveh:live-tick'));
+    },
+  };
+
+  let timer = null;
+
+  const setEnabled = (on) => {
+    window.KavehLive.enabled = !!on;
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    localStorage.setItem(KEY, on ? '1' : '0');
+    if (timer) { clearInterval(timer); timer = null; }
+    if (on) {
+      window.KavehLive.tick();
+      timer = setInterval(() => window.KavehLive.tick(), INTERVAL_MS);
+    }
+  };
+
+  btn.addEventListener('click', () => {
+    setEnabled(btn.getAttribute('aria-pressed') !== 'true');
+  });
+
+  setEnabled(localStorage.getItem(KEY) === '1');
+})();
+</script>
     @yield('scripts')
 </body>
 </html>

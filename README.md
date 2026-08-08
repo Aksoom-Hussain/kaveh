@@ -37,7 +37,7 @@ php artisan kaveh:install
 
 ```
 ┌─────────────────────┐         HTTPS batch          ┌──────────────────────┐
-│  Emailwish / Shop   │  ─────────────────────────►  │  Kaveh server        │
+│  Your Laravel app   │  ─────────────────────────►  │  Kaveh server        │
 │  role=client        │   POST /api/v1/ingest        │  role=server         │
 │  mode=remote        │   Authorization: Bearer kv_  │  /kaveh dashboard    │
 └─────────────────────┘                              └──────────────────────┘
@@ -298,21 +298,21 @@ Schedule::command('kaveh:evaluate-alerts')->everyMinute();
 
 ---
 
-## Example: wire Emailwish (or any app) in 5 minutes
+## Example: wire a production app in 5 minutes
 
-1. On **Kaveh server**: Projects → create project **Emailwish** → Issue API key → copy `kv_…`
-2. On **Emailwish app**:
+1. On **Kaveh server**: Projects → create a project (e.g. **Shop**) → Issue API key → copy `kv_…`
+2. On the **application** you want to monitor:
 
 ```bash
 composer require aksoom-hussain/kaveh
 php artisan kaveh:install --role=client --mode=remote \
-  --server-url=https://mta1.sendemailwish.com \
+  --server-url=https://kaveh.yourcompany.com \
   --api-key=kv_xxxxxxxx \
   --non-interactive
 php artisan queue:work   # supervisord / Horizon in production
 ```
 
-3. Hit any Emailwish HTTP route or fail a job → refresh Kaveh **Events** (filter project **Emailwish**).
+3. Hit any HTTP route or fail a job → refresh Kaveh **Events** (select that project).
 4. Optionally track checkout / webhook failures with `Kaveh::track()` (see use case 4).
 
 ---

@@ -12,4 +12,5 @@ enum EventType: string
     case Job = 'job';
     case Log = 'log';
     case Custom = 'custom';
+    case System = 'system';
 }

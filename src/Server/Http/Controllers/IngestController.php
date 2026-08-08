@@ -71,7 +71,10 @@ class IngestController extends Controller
                     'occurred_at' => Carbon::parse($envelope->timestamp)->utc(),
                 ]);
 
-                EmbedEventJob::dispatch($record->id);
+                // Skip embeddings for high-frequency host gauges.
+                if ($envelope->type !== \Kaveh\Contracts\EventType::System) {
+                    EmbedEventJob::dispatch($record->id);
+                }
                 $accepted++;
             }
         });

@@ -102,7 +102,7 @@ final class EventEnvelope
         if (! isset($data['type']) || ! is_string($data['type'])) {
             $errors[] = 'type is required and must be a string';
         } elseif (EventType::tryFrom($data['type']) === null) {
-            $errors[] = 'type must be one of: exception, request, query, job, log, custom';
+            $errors[] = 'type must be one of: exception, request, query, job, log, custom, system';
         }
 
         if (! isset($data['name']) || ! is_string($data['name']) || $data['name'] === '') {

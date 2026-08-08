@@ -1,6 +1,11 @@
 @extends('kaveh::layouts.app')
 @section('title', $event->name.' — Kaveh')
 @section('content')
+@php
+    $pretty = static fn ($value) => is_string($value)
+        ? $value
+        : json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+@endphp
 <div class="panel">
     <p style="margin:0 0 .75rem"><a href="{{ route('kaveh.events.index', ['project_id' => $project?->id, 'range' => $kavehRange ?? '24h']) }}">&larr; Events</a></p>
 
@@ -15,6 +20,9 @@
         <span class="badge {{ $event->level }}">{{ $event->level }}</span>
         <span class="badge">{{ $event->environment }}</span>
         <span class="muted mono">{{ $event->durationLabel() }}</span>
+        @if($event->contextValue('memory_mb'))
+            <span class="muted mono">{{ $event->contextValue('memory_mb') }} MB</span>
+        @endif
         <span class="muted">{{ optional($event->occurred_at)?->diffForHumans() }}</span>
     </div>
 
@@ -35,6 +43,7 @@
                 <tr><th>Hostname</th><td>{{ $event->hostname ?: '—' }}</td></tr>
                 <tr><th>Trace</th><td>{{ $event->trace_id ?: '—' }}</td></tr>
                 <tr><th>Duration</th><td>{{ $event->durationLabel() }}</td></tr>
+                <tr><th>Memory</th><td>{{ $event->contextValue('memory_mb') ? $event->contextValue('memory_mb').' MB' : '—' }}</td></tr>
                 <tr><th>Tags</th><td>{{ is_array($event->tags) && count($event->tags) ? implode(', ', $event->tags) : '—' }}</td></tr>
             </table>
         </div>
@@ -42,7 +51,7 @@
 
     @if($event->type === 'request')
     <details class="acc" open>
-        <summary>Request <span class="acc-meta">method · path · status</span></summary>
+        <summary>Request <span class="acc-meta">method · path · controller</span></summary>
         <div class="acc-body">
             <table class="kv">
                 <tr><th>Method</th><td><span class="badge verb verb-{{ $event->verbTone() }}">{{ $event->httpMethod() ?: '—' }}</span></td></tr>
@@ -52,9 +61,53 @@
                         <span class="badge status {{ $event->statusTone() }}">{{ $event->httpStatus() }}</span>
                     @else — @endif
                 </td></tr>
-                <tr><th>IP</th><td>{{ $event->contextValue('ip') ?: '—' }}</td></tr>
+                <tr><th>Controller</th><td><code>{{ $event->contextValue('controller_action') ?: '—' }}</code></td></tr>
+                <tr><th>Middleware</th><td>
+                    @php $mw = $event->contextValue('middleware'); @endphp
+                    {{ is_array($mw) && count($mw) ? implode(', ', $mw) : '—' }}
+                </td></tr>
+                <tr><th>IP</th><td>{{ $event->contextValue('ip_address') ?: $event->contextValue('ip') ?: '—' }}</td></tr>
                 <tr><th>Duration</th><td class="mono">{{ $event->durationLabel() }}</td></tr>
+                <tr><th>Memory</th><td class="mono">{{ $event->contextValue('memory_mb') ? $event->contextValue('memory_mb').' MB' : '—' }}</td></tr>
             </table>
+        </div>
+    </details>
+
+    <details class="acc" open>
+        <summary>Payload <span class="acc-meta">request input</span></summary>
+        <div class="acc-body">
+            <pre>{{ $pretty($event->contextValue('payload') ?? $event->contextValue('input') ?? []) }}</pre>
+        </div>
+    </details>
+
+    <details class="acc">
+        <summary>Headers <span class="acc-meta">request</span></summary>
+        <div class="acc-body">
+            <pre>{{ $pretty($event->contextValue('headers') ?? []) }}</pre>
+        </div>
+    </details>
+
+    <details class="acc" open>
+        <summary>Response <span class="acc-meta">status {{ $event->httpStatus() ?: '—' }}</span></summary>
+        <div class="acc-body">
+            <table class="kv" style="margin-bottom:1rem">
+                <tr><th>Status</th><td>
+                    @if($event->httpStatus())
+                        <span class="badge status {{ $event->statusTone() }}">{{ $event->httpStatus() }}</span>
+                    @else — @endif
+                </td></tr>
+            </table>
+            <h3 style="margin:0 0 .5rem;font-size:.9rem;color:var(--muted)">Body</h3>
+            <pre>{{ $pretty($event->contextValue('response') ?? '—') }}</pre>
+            <h3 style="margin:1rem 0 .5rem;font-size:.9rem;color:var(--muted)">Response headers</h3>
+            <pre>{{ $pretty($event->contextValue('response_headers') ?? []) }}</pre>
+        </div>
+    </details>
+
+    <details class="acc">
+        <summary>Session <span class="acc-meta">request session</span></summary>
+        <div class="acc-body">
+            <pre>{{ $pretty($event->contextValue('session') ?? []) }}</pre>
         </div>
     </details>
     @endif

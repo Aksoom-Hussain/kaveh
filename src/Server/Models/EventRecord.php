@@ -98,7 +98,7 @@ class EventRecord extends Model
 
     public function httpStatus(): ?int
     {
-        $status = $this->contextValue('status');
+        $status = $this->contextValue('response_status') ?? $this->contextValue('status');
         if (is_numeric($status)) {
             return (int) $status;
         }
@@ -120,7 +120,12 @@ class EventRecord extends Model
     public function secondaryLabel(): ?string
     {
         return match ($this->type) {
-            'request' => $this->contextValue('ip') ? 'IP '.$this->contextValue('ip') : null,
+            'request' => collect([
+                $this->contextValue('controller_action'),
+                ($this->contextValue('ip_address') ?: $this->contextValue('ip'))
+                    ? 'IP '.($this->contextValue('ip_address') ?: $this->contextValue('ip'))
+                    : null,
+            ])->filter()->implode(' · ') ?: null,
             'job' => collect([
                 $this->contextValue('connection'),
                 $this->contextValue('queue') ? 'queue:'.$this->contextValue('queue') : null,
@@ -136,6 +141,12 @@ class EventRecord extends Model
                     : null,
             ])->filter()->implode(' · ') ?: null,
             'log' => is_string($this->contextValue('message')) ? (string) $this->contextValue('message') : null,
+            'system' => collect([
+                $this->hostname,
+                isset($this->context['cpu_percent']) ? 'CPU '.$this->context['cpu_percent'].'%' : null,
+                isset($this->context['memory_percent']) ? 'RAM '.$this->context['memory_percent'].'%' : null,
+                isset($this->context['disk_percent']) ? 'Disk '.$this->context['disk_percent'].'%' : null,
+            ])->filter()->implode(' · ') ?: null,
             default => null,
         };
     }

@@ -4,13 +4,13 @@ Concrete setups other developers usually need. For a short overview see the [REA
 
 ## A. Multiple production apps → one ops dashboard
 
-**Goal:** Emailwish, Shopify apps, and internal APIs all report into one Kaveh host.
+**Goal:** Shop, API, and internal apps all report into one Kaveh host.
 
 ```
  App A (client) ─┐
  App B (client) ─┼──►  Kaveh server (role=server)
- App C (client) ─┘         ├── Project: Emailwish
-                           ├── Project: DiscoverShopify
+ App C (client) ─┘         ├── Project: Shop
+                           ├── Project: Billing API
                            └── Project: Internal API
 ```
 
@@ -99,7 +99,7 @@ Confirms network + key + ingest path before traffic resumes.
 | `role=both` on a busy production web node | `client` on apps, `server` on a small monitor host |
 | Flushing remote batches synchronously in the request | `KAVEH_USE_QUEUE=true` + `queue:work` / Horizon |
 | Leaving `viewKaveh` open on a public URL | Gate to ops emails / SSO users |
-| Expecting Emailwish data without installing the **client** on Emailwish | Install client + API key on that app |
+| Expecting app data without installing the **client** on that app | Install client + API key on the app being monitored |
 
 ---
 

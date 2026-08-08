@@ -5,6 +5,7 @@ namespace Kaveh\Server\Http\Controllers;
 use Kaveh\Server\Models\EventRecord;
 use Kaveh\Server\Models\Project;
 use Kaveh\Server\Support\DashboardFilter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,89 @@ class DashboardController extends Controller
             'event' => $event,
             'project' => $event->project,
             'projects' => $filters->projects,
+        ]);
+    }
+
+    public function liveOverview(Request $request): JsonResponse
+    {
+        /** @var DashboardFilter $filters */
+        $filters = $request->attributes->get('kaveh.filters') ?? DashboardFilter::resolve($request);
+        $project = $filters->project;
+        $since = $filters->since();
+
+        $base = EventRecord::query()->where('project_id', $project?->id);
+
+        $stats = [
+            'total' => (clone $base)->where('occurred_at', '>=', $since)->count(),
+            'exceptions' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'exception')->count(),
+            'failed_jobs' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'job')->where('level', 'error')->count(),
+            'slow_queries' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'query')->count(),
+            'avg_request_ms' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'request')->avg('duration_ms'),
+        ];
+
+        $byType = EventRecord::query()
+            ->select('type', DB::raw('count(*) as aggregate'))
+            ->where('project_id', $project?->id)
+            ->where('occurred_at', '>=', $since)
+            ->groupBy('type')
+            ->pluck('aggregate', 'type');
+
+        $recent = EventRecord::query()
+            ->where('project_id', $project?->id)
+            ->where('occurred_at', '>=', $since)
+            ->latest('occurred_at')
+            ->limit(25)
+            ->get();
+
+        return response()->json([
+            'project' => $project?->name,
+            'range' => $filters->range,
+            'range_label' => $filters->label(),
+            'stats' => [
+                'total' => $stats['total'],
+                'exceptions' => $stats['exceptions'],
+                'failed_jobs' => $stats['failed_jobs'],
+                'slow_queries' => $stats['slow_queries'],
+                'avg_request_ms' => $stats['avg_request_ms'] !== null ? round((float) $stats['avg_request_ms'], 1) : null,
+            ],
+            'by_type' => $byType,
+            'recent_count' => $recent->count(),
+            'recent_html' => view('kaveh::partials.events-table', ['events' => $recent])->render(),
+            'by_type_html' => view('kaveh::partials.by-type', ['byType' => $byType])->render(),
+            'refreshed_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    public function liveEvents(Request $request): JsonResponse
+    {
+        /** @var DashboardFilter $filters */
+        $filters = $request->attributes->get('kaveh.filters') ?? DashboardFilter::resolve($request);
+        $project = $filters->project;
+
+        $query = EventRecord::query()
+            ->where('project_id', $project?->id)
+            ->where('occurred_at', '>=', $filters->since())
+            ->latest('occurred_at');
+
+        if ($type = $request->string('type')->toString()) {
+            $query->where('type', $type);
+        }
+        if ($level = $request->string('level')->toString()) {
+            $query->where('level', $level);
+        }
+        if ($search = $request->string('q')->toString()) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('uuid', 'like', "%{$search}%");
+            });
+        }
+
+        $events = $query->limit(50)->get();
+
+        return response()->json([
+            'count' => $events->count(),
+            'html' => view('kaveh::partials.events-table', ['events' => $events])->render(),
+            'refreshed_at' => now()->toIso8601String(),
         ]);
     }
 

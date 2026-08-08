@@ -67,6 +67,40 @@ Force flush:
 php artisan kaveh:flush
 ```
 
+## Server stats worker (Pulse-like)
+
+Ship CPU / memory / disk gauges from the **app host** (not the Kaveh monitor):
+
+```bash
+php artisan kaveh:check
+```
+
+Run under supervisord / systemd (same idea as `pulse:check`):
+
+```ini
+[program:kaveh-check]
+command=php /var/www/app/artisan kaveh:check
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/www/app/storage/logs/kaveh-check.log
+```
+
+Or once per minute via cron/scheduler:
+
+```bash
+php artisan kaveh:check --once
+```
+
+```env
+KAVEH_CHECK_ENABLED=true
+KAVEH_CHECK_INTERVAL=15
+KAVEH_CHECK_DISKS=/,/var
+```
+
+Stats appear on the Kaveh Overview → **App hosts** accordion for the project.
+
 ## Custom events
 
 ```php

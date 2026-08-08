@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Kaveh\Console\CheckCommand;
 use Kaveh\Console\FlushCommand;
 use Kaveh\Console\InstallCommand;
 use Kaveh\Console\PruneCommand;
@@ -310,6 +311,7 @@ class KavehServiceProvider extends ServiceProvider
         $this->commands([
             InstallCommand::class,
             FlushCommand::class,
+            CheckCommand::class,
             PruneCommand::class,
             PruneEventsCommand::class,
             EvaluateAlertsCommand::class,
