@@ -1,0 +1,37 @@
+name: Kaveh deploy ping
+
+# Optional: post a deploy.finished event to your Kaveh server after a release/deploy.
+# Enable by adding secrets KAVEH_SERVER_URL and KAVEH_API_KEY, then uncomment `on:` triggers.
+
+on:
+  workflow_dispatch:
+  # push:
+  #   tags: ['v*']
+  # release:
+  #   types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ingest deploy.finished
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Kaveh ingest
+        env:
+          KAVEH_SERVER_URL: ${{ secrets.KAVEH_SERVER_URL }}
+          KAVEH_API_KEY: ${{ secrets.KAVEH_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KAVEH_SERVER_URL:-}" ] || [ -z "${KAVEH_API_KEY:-}" ]; then
+            echo "Skipping: set secrets KAVEH_SERVER_URL and KAVEH_API_KEY."
+            exit 0
+          fi
+          BASE="${KAVEH_SERVER_URL%/}"
+          TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          curl -fsS -X POST "${BASE}/api/v1/ingest" \
+            -H "Authorization: Bearer ${KAVEH_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{\"events\":[{\"type\":\"custom\",\"name\":\"deploy.finished\",\"timestamp\":\"${TS}\",\"environment\":\"production\",\"hostname\":\"github-actions\",\"level\":\"info\",\"tags\":[\"deploy\",\"ci\"],\"context\":{\"sha\":\"${GITHUB_SHA}\",\"ref\":\"${GITHUB_REF}\",\"repo\":\"${GITHUB_REPOSITORY}\",\"run_id\":\"${GITHUB_RUN_ID}\"}}]}"
+          echo "Kaveh ingest accepted deploy.finished"

@@ -32,5 +32,10 @@ final class EventEnvelopeTest extends TestCase
             'type' => 'exception',
             'name' => 'RuntimeException',
         ]));
+        $this->assertSame([], EventEnvelope::validate([
+            'type' => 'system',
+            'name' => 'system.stats',
+            'context' => ['cpu_percent' => 12.5],
+        ]));
     }
 }

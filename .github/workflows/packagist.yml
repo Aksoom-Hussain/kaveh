@@ -1,0 +1,34 @@
+name: Packagist
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: Update Packagist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Packagist update
+        env:
+          PACKAGIST_USER: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PACKAGIST_USER:-}" ] || [ -z "${PACKAGIST_TOKEN:-}" ]; then
+            echo "Skipping: set repository secrets PACKAGIST_USERNAME and PACKAGIST_TOKEN."
+            echo "Create a token at https://packagist.org/profile/"
+            exit 0
+          fi
+          curl -fsS -X POST \
+            "https://packagist.org/api/update-package?username=${PACKAGIST_USER}&apiToken=${PACKAGIST_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"repository":{"url":"https://github.com/Aksoom-Hussain/kaveh"}}'
+          echo "Packagist update requested."
