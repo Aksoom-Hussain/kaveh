@@ -4,6 +4,7 @@ namespace Kaveh\Server\Http\Controllers;
 
 use Kaveh\Server\Models\AlertRule;
 use Kaveh\Server\Models\Project;
+use Kaveh\Server\Support\DashboardFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,16 +14,23 @@ class AlertController extends Controller
 {
     public function index(Request $request): View
     {
-        $project = $this->resolveProject($request);
+        /** @var DashboardFilter $filters */
+        $filters = $request->attributes->get('kaveh.filters') ?? DashboardFilter::resolve($request);
+        $project = $filters->project;
         $rules = AlertRule::query()->where('project_id', $project?->id)->latest()->get();
-        $projects = $this->userProjects();
 
-        return view('kaveh::alerts.index', compact('rules', 'project', 'projects'));
+        return view('kaveh::alerts.index', [
+            'rules' => $rules,
+            'project' => $project,
+            'projects' => $filters->projects,
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $project = $this->resolveProject($request);
+        /** @var DashboardFilter $filters */
+        $filters = $request->attributes->get('kaveh.filters') ?? DashboardFilter::resolve($request);
+        $project = $filters->project;
         abort_unless($project, 404);
 
         $data = $request->validate([
@@ -51,26 +59,6 @@ class AlertController extends Controller
         $alert->forceFill(['enabled' => ! $alert->enabled])->save();
 
         return back();
-    }
-
-    private function userProjects()
-    {
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
-
-        return Project::query()->whereIn('organization_id', $orgIds)->orderBy('name')->get();
-    }
-
-    private function resolveProject(Request $request): ?Project
-    {
-        $projects = $this->userProjects();
-        if ($projects->isEmpty()) {
-            return null;
-        }
-        $id = $request->integer('project_id') ?: session('kaveh_project_id');
-        $project = $projects->firstWhere('id', $id) ?: $projects->first();
-        session(['kaveh_project_id' => $project->id]);
-
-        return $project;
     }
 
     private function authorizeRule(AlertRule $rule): void

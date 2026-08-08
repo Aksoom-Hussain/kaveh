@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Kaveh\Http\Middleware\Authenticate;
 use Kaveh\Http\Middleware\Authorize;
+use Kaveh\Http\Middleware\ShareDashboardFilters;
 use Kaveh\Watchers\ExceptionWatcher;
 use Kaveh\Watchers\JobWatcher;
 use Kaveh\Watchers\LogWatcher;
@@ -122,6 +123,7 @@ return [
         'web',
         Authenticate::class,
         Authorize::class,
+        ShareDashboardFilters::class,
     ],
 
     /*

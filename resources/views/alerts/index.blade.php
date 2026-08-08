@@ -1,15 +1,8 @@
 @extends('kaveh::layouts.app')
 @section('title', 'Alerts — Kaveh')
 @section('content')
-<div class="row" style="justify-content:space-between">
-    <h1>Alerts</h1>
-    <form method="get">
-        <select name="project_id" onchange="this.form.submit()">
-            @foreach($projects as $p)
-                <option value="{{ $p->id }}" @selected($project?->id === $p->id)>{{ $p->name }}</option>
-            @endforeach
-        </select>
-    </form>
+<div class="row" style="justify-content:space-between;align-items:center">
+    <h1 style="margin:0">Alerts</h1>
 </div>
 
 <div class="panel">

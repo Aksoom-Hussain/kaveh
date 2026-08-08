@@ -27,7 +27,7 @@ class MetricsController extends Controller
         if (! Schema::hasTable('pulse_aggregates')) {
             return response()->json([
                 'available' => false,
-                'message' => 'Laravel Pulse is not installed (missing pulse_aggregates).',
+                'message' => 'System metrics are not available yet.',
                 'series' => (object) [],
             ]);
         }

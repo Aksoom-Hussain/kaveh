@@ -2,7 +2,6 @@
 
 use Kaveh\Server\Http\Controllers\AlertController;
 use Kaveh\Server\Http\Controllers\AuthController;
-use Kaveh\Server\Http\Controllers\ChatController;
 use Kaveh\Server\Http\Controllers\DashboardController;
 use Kaveh\Server\Http\Controllers\MetricsController;
 use Kaveh\Server\Http\Controllers\ProjectController;
@@ -45,7 +44,4 @@ Route::middleware('kaveh')->group(function () {
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
     Route::post('/alerts', [AlertController::class, 'store'])->name('alerts.store');
     Route::post('/alerts/{alert}/toggle', [AlertController::class, 'toggle'])->name('alerts.toggle');
-
-    Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
-    Route::post('/chat', [ChatController::class, 'ask'])->name('chat.ask');
 });

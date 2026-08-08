@@ -24,6 +24,10 @@ final class JobWatcher
     {
         Event::listen(JobProcessed::class, function (JobProcessed $event): void {
             Silencer::run(function () use ($event): void {
+                if ($this->shouldIgnore($event->job->resolveName())) {
+                    return;
+                }
+
                 $this->kaveh->record(new EventEnvelope(
                     id: EventEnvelope::generateId(),
                     type: EventType::Job,
@@ -44,6 +48,10 @@ final class JobWatcher
 
         Event::listen(JobFailed::class, function (JobFailed $event): void {
             Silencer::run(function () use ($event): void {
+                if ($this->shouldIgnore($event->job->resolveName())) {
+                    return;
+                }
+
                 $this->kaveh->record(new EventEnvelope(
                     id: EventEnvelope::generateId(),
                     type: EventType::Job,
@@ -62,5 +70,12 @@ final class JobWatcher
                 ));
             });
         });
+    }
+
+    private function shouldIgnore(string $jobName): bool
+    {
+        return str_starts_with($jobName, 'Kaveh\\')
+            || str_contains($jobName, 'FlushEventsJob')
+            || str_contains($jobName, 'EmbedEventJob');
     }
 }

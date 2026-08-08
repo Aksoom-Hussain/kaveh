@@ -72,6 +72,7 @@ class KavehServiceProvider extends ServiceProvider
             'web',
             Authenticate::class,
             Authorize::class,
+            \Kaveh\Http\Middleware\ShareDashboardFilters::class,
         ]));
 
         $role = (string) config('kaveh.role', 'client');

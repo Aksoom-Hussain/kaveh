@@ -1,20 +1,11 @@
 @extends('kaveh::layouts.app')
 @section('title', 'Overview — Kaveh')
 @section('content')
-<div class="row" style="justify-content:space-between;margin-bottom:1rem">
-    <h1 style="margin:0">Overview <span style="color:var(--muted);font-size:1rem">last 24h</span></h1>
-    @if($projects->isNotEmpty())
-    <form method="get">
-        <select name="project_id" onchange="this.form.submit()">
-            @foreach($projects as $p)
-                <option value="{{ $p->id }}" @selected($project?->id === $p->id)>{{ $p->name }}</option>
-            @endforeach
-        </select>
-    </form>
-    @endif
+<div class="row" style="justify-content:space-between;margin-bottom:1rem;align-items:center">
+    <h1 style="margin:0">Overview <span style="color:var(--muted);font-size:1rem;font-family:'DM Sans',sans-serif">past {{ $rangeLabel }}</span></h1>
 </div>
 
-<div class="grid">
+<div class="grid" style="margin-bottom:1.25rem">
     <div class="panel stat"><h3>Events</h3><p>{{ number_format($stats['total']) }}</p></div>
     <div class="panel stat"><h3>Exceptions</h3><p>{{ number_format($stats['exceptions']) }}</p></div>
     <div class="panel stat"><h3>Failed jobs</h3><p>{{ number_format($stats['failed_jobs']) }}</p></div>
@@ -22,69 +13,92 @@
     <div class="panel stat"><h3>Avg request ms</h3><p>{{ $stats['avg_request_ms'] ? number_format($stats['avg_request_ms'], 1) : '—' }}</p></div>
 </div>
 
-<div class="panel">
-    <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-        <h2 style="margin:0">Pulse graphs</h2>
-        <span id="pulse-status" style="color:var(--muted);font-size:.85rem">loading…</span>
-    </div>
-    <div class="grid" style="margin-bottom:1rem">
-        <div class="panel stat" style="margin:0"><h3>CPU</h3><p id="pulse-latest-cpu">—</p></div>
-        <div class="panel stat" style="margin:0"><h3>Memory</h3><p id="pulse-latest-mem">—</p></div>
-        <div class="panel stat" style="margin:0"><h3>Requests (window)</h3><p id="pulse-latest-req">—</p></div>
-        <div class="panel stat" style="margin:0"><h3>Exceptions (window)</h3><p id="pulse-latest-ex">—</p></div>
-    </div>
-    <div class="grid" style="grid-template-columns:1fr 1fr">
-        <div>
-            <h3 style="margin:0 0 .5rem;color:var(--muted);font-size:.85rem;font-weight:500">CPU % <span style="opacity:.7">·</span> Memory MB</h3>
-            <canvas id="chart-pulse-system" height="140"></canvas>
-        </div>
-        <div>
-            <h3 style="margin:0 0 .5rem;color:var(--muted);font-size:.85rem;font-weight:500">Requests / Exceptions</h3>
-            <canvas id="chart-pulse-traffic" height="140"></canvas>
-        </div>
-        <div>
-            <h3 style="margin:0 0 .5rem;color:var(--muted);font-size:.85rem;font-weight:500">Queue</h3>
-            <canvas id="chart-pulse-queue" height="140"></canvas>
-        </div>
-        <div>
-            <h3 style="margin:0 0 .5rem;color:var(--muted);font-size:.85rem;font-weight:500">Cache hit / miss</h3>
-            <canvas id="chart-pulse-cache" height="140"></canvas>
-        </div>
-    </div>
+<div class="row" style="justify-content:space-between;align-items:baseline;margin-bottom:.65rem">
+    <h2 style="margin:0">Graphs</h2>
+    <span id="metrics-status" style="color:var(--muted);font-size:.85rem">loading…</span>
 </div>
 
-<div class="panel">
-    <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-        <h2 style="margin:0">Kaveh events</h2>
-        <span style="color:var(--muted);font-size:.85rem">via API · hourly</span>
-    </div>
-    <canvas id="chart-kaveh-events" height="110"></canvas>
+<div class="grid" style="margin-bottom:1rem">
+    <div class="panel stat" style="margin:0"><h3>CPU</h3><p id="metrics-latest-cpu">—</p></div>
+    <div class="panel stat" style="margin:0"><h3>Memory</h3><p id="metrics-latest-mem">—</p></div>
+    <div class="panel stat" style="margin:0"><h3>Requests (window)</h3><p id="metrics-latest-req">—</p></div>
+    <div class="panel stat" style="margin:0"><h3>Exceptions (window)</h3><p id="metrics-latest-ex">—</p></div>
 </div>
 
-<div class="panel">
-    <h2>By type</h2>
-    @forelse($byType as $type => $count)
-        <span class="badge" style="margin:.2rem">{{ $type }}: {{ $count }}</span>
-    @empty
-        <p style="color:var(--muted)">No events yet. Point a client at <code>/api/v1/ingest</code>.</p>
-    @endforelse
-</div>
+<div class="accordion">
+    <details class="acc" open>
+        <summary>
+            System
+            <span class="acc-meta">CPU · Memory</span>
+        </summary>
+        <div class="acc-body">
+            <canvas id="chart-system" height="140"></canvas>
+        </div>
+    </details>
 
-<div class="panel">
-    <h2>Recent events</h2>
-    <table>
-        <thead><tr><th>When</th><th>Type</th><th>Name</th><th>Level</th></tr></thead>
-        <tbody>
-        @foreach($recent as $event)
-            <tr>
-                <td>{{ optional($event->occurred_at)?->diffForHumans() }}</td>
-                <td><span class="badge">{{ $event->type }}</span></td>
-                <td><a href="{{ route('kaveh.events.show', $event) }}">{{ $event->name }}</a></td>
-                <td><span class="badge {{ $event->level }}">{{ $event->level }}</span></td>
-            </tr>
-        @endforeach
-        </tbody>
-    </table>
+    <details class="acc">
+        <summary>
+            Traffic
+            <span class="acc-meta">Requests · Exceptions</span>
+        </summary>
+        <div class="acc-body">
+            <canvas id="chart-traffic" height="140"></canvas>
+        </div>
+    </details>
+
+    <details class="acc">
+        <summary>
+            Queue
+            <span class="acc-meta">Queued · Processing · Processed</span>
+        </summary>
+        <div class="acc-body">
+            <canvas id="chart-queue" height="140"></canvas>
+        </div>
+    </details>
+
+    <details class="acc">
+        <summary>
+            Cache
+            <span class="acc-meta">Hits · Misses</span>
+        </summary>
+        <div class="acc-body">
+            <canvas id="chart-cache" height="140"></canvas>
+        </div>
+    </details>
+
+    <details class="acc" open>
+        <summary>
+            Events
+            <span class="acc-meta">via API · hourly</span>
+        </summary>
+        <div class="acc-body">
+            <canvas id="chart-events" height="110"></canvas>
+        </div>
+    </details>
+
+    <details class="acc">
+        <summary>
+            By type
+            <span class="acc-meta">{{ $byType->count() }} types</span>
+        </summary>
+        <div class="acc-body">
+            @forelse($byType as $type => $count)
+                <span class="badge type-{{ $type }}" style="margin:.2rem">{{ $type }}: {{ $count }}</span>
+            @empty
+                <p style="color:var(--muted);margin:0">No events yet. Point a client at <code>/api/v1/ingest</code>.</p>
+            @endforelse
+        </div>
+    </details>
+
+    <details class="acc" open>
+        <summary>
+            Recent events
+            <span class="acc-meta">{{ $recent->count() }} shown · <a href="{{ route('kaveh.events.index', ['project_id' => $project?->id, 'range' => $range]) }}" onclick="event.stopPropagation()">view all</a></span>
+        </summary>
+        <div class="acc-body">
+            @include('kaveh::partials.events-table', ['events' => $recent])
+        </div>
+    </details>
 </div>
 @endsection
 
@@ -92,13 +106,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 (() => {
-  const pulseUrl = @json(route('kaveh.metrics.pulse', ['period' => 60, 'range' => 3600]));
-  const eventsUrl = @json(route('kaveh.metrics.events', ['hours' => 24, 'project_id' => $project?->id]));
+  const metricsUrl = @json(route('kaveh.metrics.pulse', ['period' => $metricsPeriod, 'range' => $metricsRange]));
+  const eventsUrl = @json(route('kaveh.metrics.events', ['hours' => $metricsHours, 'project_id' => $project?->id]));
   const accent = '#3dd6c6';
   const danger = '#ff6b6b';
   const warn = '#f4c15d';
   const blue = '#6ea8fe';
-  const muted = '#8ea0b5';
+  const muted = '#8b9cb0';
   const charts = {};
 
   const baseOptions = {
@@ -132,41 +146,52 @@
   };
 
   function upsert(id, config) {
+    const el = document.getElementById(id);
+    if (!el) return null;
     if (charts[id]) {
       charts[id].data.labels = config.data.labels;
       charts[id].data.datasets = config.data.datasets;
       charts[id].update('none');
       return charts[id];
     }
-    charts[id] = new Chart(document.getElementById(id), config);
+    charts[id] = new Chart(el, config);
     return charts[id];
   }
 
-  async function loadPulse() {
-    const status = document.getElementById('pulse-status');
+  document.querySelectorAll('details.acc').forEach((det) => {
+    det.addEventListener('toggle', () => {
+      if (!det.open) return;
+      requestAnimationFrame(() => {
+        Object.values(charts).forEach((c) => c.resize());
+      });
+    });
+  });
+
+  async function loadMetrics() {
+    const status = document.getElementById('metrics-status');
     try {
-      const res = await fetch(pulseUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+      const res = await fetch(metricsUrl, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
       const data = await res.json();
       if (!data.available) {
-        status.textContent = data.message || 'Pulse unavailable';
+        status.textContent = data.message || 'Metrics unavailable';
         return;
       }
       const mins = Math.round((data.range || 3600) / 60);
       status.textContent = `last ${mins}m · ${data.period}s buckets`;
 
       const latest = data.latest || {};
-      document.getElementById('pulse-latest-cpu').textContent =
+      document.getElementById('metrics-latest-cpu').textContent =
         latest.cpu == null ? '—' : `${Number(latest.cpu).toFixed(1)}%`;
-      document.getElementById('pulse-latest-mem').textContent =
+      document.getElementById('metrics-latest-mem').textContent =
         latest.memory_mb == null ? '—' : `${Number(latest.memory_mb).toFixed(1)} MB`;
-      document.getElementById('pulse-latest-req').textContent =
+      document.getElementById('metrics-latest-req').textContent =
         latest.requests == null ? '—' : Number(latest.requests).toLocaleString();
-      document.getElementById('pulse-latest-ex').textContent =
+      document.getElementById('metrics-latest-ex').textContent =
         latest.exceptions == null ? '—' : Number(latest.exceptions).toLocaleString();
 
       const s = data.series || {};
       const sysRaw = labelsFrom([s.cpu, s.memory]);
-      upsert('chart-pulse-system', {
+      upsert('chart-system', {
         type: 'line',
         data: {
           labels: sysRaw.map(short),
@@ -186,7 +211,7 @@
       });
 
       const trafRaw = labelsFrom([s.user_request, s.exception]);
-      upsert('chart-pulse-traffic', {
+      upsert('chart-traffic', {
         type: 'line',
         data: {
           labels: trafRaw.map(short),
@@ -199,7 +224,7 @@
       });
 
       const qRaw = labelsFrom([s.queued, s.processing, s.processed]);
-      upsert('chart-pulse-queue', {
+      upsert('chart-queue', {
         type: 'line',
         data: {
           labels: qRaw.map(short),
@@ -213,7 +238,7 @@
       });
 
       const cRaw = labelsFrom([s.cache_hit, s.cache_miss]);
-      upsert('chart-pulse-cache', {
+      upsert('chart-cache', {
         type: 'line',
         data: {
           labels: cRaw.map(short),
@@ -225,7 +250,7 @@
         options: baseOptions,
       });
     } catch (e) {
-      status.textContent = 'Failed to load Pulse API';
+      status.textContent = 'Failed to load metrics';
       console.error(e);
     }
   }
@@ -238,7 +263,7 @@
       const types = Object.keys(s);
       const raw = labelsFrom(types.map(t => s[t]));
       const colors = [accent, danger, warn, blue, '#c084fc', '#fb7185', '#34d399'];
-      upsert('chart-kaveh-events', {
+      upsert('chart-events', {
         type: 'line',
         data: {
           labels: raw.map(short),
@@ -251,9 +276,9 @@
     }
   }
 
-  loadPulse();
+  loadMetrics();
   loadEvents();
-  setInterval(() => { loadPulse(); loadEvents(); }, 60000);
+  setInterval(() => { loadMetrics(); loadEvents(); }, 60000);
 })();
 </script>
 @endsection
