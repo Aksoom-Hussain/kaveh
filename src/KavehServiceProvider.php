@@ -254,8 +254,9 @@ class KavehServiceProvider extends ServiceProvider
     {
         RateLimiter::for('kaveh-ingest', function (Request $request) {
             $key = $request->header('Authorization', $request->ip());
+            $limit = max(1, (int) config('kaveh.server.ingest_rate_limit', 600));
 
-            return Limit::perMinute(120)->by(sha1((string) $key));
+            return Limit::perMinute($limit)->by(sha1((string) $key));
         });
     }
 

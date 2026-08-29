@@ -221,6 +221,8 @@ return [
         'registers_routes' => env('KAVEH_REGISTER_ROUTES', true),
         // Hard ceiling on a gzip-encoded ingest body after decompression (bomb guard).
         'max_decompressed_bytes' => (int) env('KAVEH_MAX_DECOMPRESSED_BYTES', 16 * 1024 * 1024),
+        // Ingest POSTs per minute, keyed by Authorization header (falls back to IP).
+        'ingest_rate_limit' => (int) env('KAVEH_INGEST_RATE_LIMIT', 600),
     ],
 
 ];

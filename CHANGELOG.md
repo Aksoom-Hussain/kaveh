@@ -5,6 +5,23 @@ All notable changes to `aksoom-hussain/kaveh` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-08-29
+
+### Added
+
+- Configurable ingest rate limit: `KAVEH_INGEST_RATE_LIMIT` (default **600**
+  requests/minute per API key, was hard-coded at 120).
+- `RemoteTransport::lastFailure()` — human-readable reason when ingest returns
+  false (missing config, HTTP status, network error).
+
+### Fixed
+
+- **`FlushEventsJob`** — on **HTTP 429**, requeue after 60s instead of failing
+  immediately; exception message now includes the transport failure reason.
+- **`ExceptionWatcher`** — skip recording `FlushEventsJob` ingest transport
+  failures, preventing a feedback loop of failed-ingest exception events on the
+  dashboard.
+
 ## [0.2.1] - 2026-08-29
 
 ### Added

@@ -40,6 +40,14 @@ final class ExceptionWatcher
         if ($recording) {
             return;
         }
+
+        // Kaveh queue transport failures are retried by FlushEventsJob — recording
+        // them as host exceptions creates a feedback loop of failed ingest events.
+        if (str_contains($e->getMessage(), 'Kaveh: ingest send failed')
+            || str_contains($e->getFile(), 'FlushEventsJob.php')) {
+            return;
+        }
+
         $recording = true;
 
         try {

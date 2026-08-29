@@ -51,9 +51,20 @@ final class FlushEventsJob implements ShouldQueue
         }
 
         if (! $transport->send(new IngestBatch($envelopes, gmdate('c')))) {
+            $reason = $transport->lastFailure();
+            $detail = $reason !== null && $reason !== '' ? " ({$reason})" : '';
+
+            // Rate-limited by the server — requeue with backoff instead of burning
+            // a retry attempt and flooding the dashboard with exception events.
+            if ($reason !== null && str_contains($reason, 'HTTP 429')) {
+                $this->release(60);
+
+                return;
+            }
+
             // Queue worker, not the host request path: throwing is what the
             // retry/backoff machinery is for, and failed_jobs is the dead letter.
-            throw new RuntimeException('Kaveh: ingest send failed for '.count($envelopes).' events.');
+            throw new RuntimeException('Kaveh: ingest send failed for '.count($envelopes).' events.'.$detail);
         }
     }
 }
