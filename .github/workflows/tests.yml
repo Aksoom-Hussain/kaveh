@@ -16,12 +16,23 @@ concurrency:
 
 jobs:
   tests:
-    name: PHP ${{ matrix.php }}
+    name: PHP ${{ matrix.php }} / Illuminate ${{ matrix.illuminate }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         php: ['8.2', '8.3', '8.4']
+        include:
+          - illuminate: 11
+            testbench: '^9.0'
+          - illuminate: 12
+            testbench: '^10.0'
+          - illuminate: 13
+            testbench: '^11.0'
+        exclude:
+          # Illuminate 13 requires PHP 8.3+.
+          - php: '8.2'
+            illuminate: 13
 
     steps:
       - name: Checkout
@@ -31,7 +42,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, json, pdo, pdo_sqlite, tokenizer, xml, curl
+          extensions: mbstring, json, pdo, pdo_sqlite, tokenizer, xml, curl, zlib
           coverage: none
           tools: composer:v2
 
@@ -43,9 +54,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-${{ matrix.php }}-${{ hashFiles('**/composer.json') }}
+          key: composer-${{ runner.os }}-${{ matrix.php }}-${{ matrix.illuminate }}-${{ hashFiles('**/composer.json') }}
           restore-keys: |
-            composer-${{ runner.os }}-${{ matrix.php }}-
+            composer-${{ runner.os }}-${{ matrix.php }}-${{ matrix.illuminate }}-
+
+      - name: Pin Illuminate major
+        run: |
+          composer require --dev --no-interaction --no-update \
+            "orchestra/testbench:${{ matrix.testbench }}"
+          for pkg in support http database queue console routing view auth; do
+            composer require --no-interaction --no-update \
+              "illuminate/$pkg:^${{ matrix.illuminate }}.0"
+          done
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress

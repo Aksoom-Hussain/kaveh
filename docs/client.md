@@ -31,7 +31,7 @@ KAVEH_FAIL_SILENTLY=true
 | Mode | Behavior |
 |------|----------|
 | `remote` | Buffer in memory / queue → POST batches to the server (recommended in production) |
-| `local` | Persist to local Kaveh tables on this app |
+| `local` | Persist to the local `kaveh_client_events` table on this app |
 | `both` | Local store **and** remote ship |
 
 ## Watchers

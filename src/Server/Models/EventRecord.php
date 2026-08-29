@@ -4,11 +4,10 @@ namespace Kaveh\Server\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EventRecord extends Model
 {
-    protected $table = 'events';
+    protected $table = 'kaveh_events';
 
     protected $fillable = [
         'project_id',
@@ -40,25 +39,6 @@ class EventRecord extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
-    }
-
-    public function embedding(): HasOne
-    {
-        return $this->hasOne(EventEmbedding::class, 'event_id');
-    }
-
-    public function searchableText(): string
-    {
-        $parts = [
-            $this->type,
-            $this->name,
-            $this->level,
-            $this->environment,
-            is_array($this->tags) ? implode(' ', $this->tags) : '',
-            json_encode($this->context) ?: '',
-        ];
-
-        return mb_substr(implode(' ', array_filter($parts)), 0, 8000);
     }
 
     public function contextValue(string $key, mixed $default = null): mixed

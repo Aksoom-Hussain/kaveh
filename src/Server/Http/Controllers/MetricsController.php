@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Kaveh\Server\Http\Controllers;
 
 use Kaveh\Server\Models\EventRecord;
-use Kaveh\Server\Models\Project;
 use Kaveh\Server\Support\DashboardInsights;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -109,7 +107,7 @@ class MetricsController extends Controller
         }
         $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
         $since = now()->subSeconds($rangeSeconds);
-        $projectId = $request->integer('project_id') ?: null;
+        $projectId = $this->authorizeProject($request->integer('project_id') ?: null);
 
         // Finer buckets for short windows so project charts look like traffic, not one flat hour.
         $bucket = $rangeSeconds <= 3600 * 6 ? 'minute' : 'hour';
@@ -125,7 +123,12 @@ class MetricsController extends Controller
 
         $base = EventRecord::query()
             ->where('occurred_at', '>=', $since)
-            ->when($projectId, fn ($q) => $q->where('project_id', $projectId));
+            // No project selected still means "my projects", never "every tenant".
+            ->when(
+                $projectId,
+                fn ($q) => $q->where('project_id', $projectId),
+                fn ($q) => $q->whereIn('project_id', $this->userProjectIds())
+            );
 
         $query = (clone $base)
             ->selectRaw("{$bucketExpr} as bucket, type, COUNT(*) as aggregate, AVG(duration_ms) as avg_ms")
@@ -197,11 +200,7 @@ class MetricsController extends Controller
             ]);
         }
 
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
-        abort_unless(
-            Project::query()->whereKey($projectId)->whereIn('organization_id', $orgIds)->exists(),
-            403
-        );
+        $this->authorizeProject($projectId);
 
         $rangeSeconds = (int) $request->integer('range', 3600);
         $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
@@ -220,7 +219,7 @@ class MetricsController extends Controller
         $rangeSeconds = (int) $request->integer('range', 3600);
         $rangeSeconds = max(300, min($rangeSeconds, 86400 * 7));
         $since = now()->subSeconds($rangeSeconds);
-        $projectId = $request->integer('project_id') ?: null;
+        $projectId = $this->authorizeProject($request->integer('project_id') ?: null);
 
         if (! $projectId) {
             return response()->json([

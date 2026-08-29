@@ -108,5 +108,5 @@ Confirms network + key + ingest path before traffic resumes.
 - [ ] Server installed, migrations run, user can log in
 - [ ] Project created, API key copied once
 - [ ] Client `.env` has `SERVER_URL` + `API_KEY`
-- [ ] Queue worker running on client (and server if using embeddings/alerts jobs)
+- [ ] Queue worker running on client (and on the server if alert notifications are queued)
 - [ ] Generate traffic → Events list shows hostname of the **client** app (not only the server)

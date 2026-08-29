@@ -42,7 +42,7 @@ Optional: `Content-Encoding: gzip` when the body is gzip-compressed.
 
 ### Event types
 
-`exception` · `request` · `query` · `job` · `log` · `custom`
+`exception` · `request` · `query` · `job` · `log` · `custom` · `system`
 
 ### Timestamps
 
@@ -53,8 +53,9 @@ Send ISO-8601 (prefer UTC / `Z`). Ambiguous local times cause confusing “Happe
 | Code | Meaning |
 |------|---------|
 | `202` | Accepted |
-| `207` | Partial — some events failed validation |
+| `207` | Partial — events are stored one by one, so only the failures are rejected (listed in `errors[]`) |
 | `401` | Invalid / revoked API key |
+| `413` | Gzip body inflated past `KAVEH_MAX_DECOMPRESSED_BYTES` (16 MB default) |
 | `422` | Payload invalid |
 | `429` | Rate limited (`throttle:kaveh-ingest`) |
 

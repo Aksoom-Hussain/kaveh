@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AlertRule extends Model
 {
+    protected $table = 'kaveh_alert_rules';
+
     protected $fillable = [
         'project_id',
         'name',

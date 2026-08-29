@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AlertFiring extends Model
 {
+    protected $table = 'kaveh_alert_firings';
+
     protected $fillable = [
         'alert_rule_id',
         'count',

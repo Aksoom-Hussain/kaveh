@@ -8,25 +8,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('organizations', function (Blueprint $table) {
+        Schema::create('kaveh_organizations', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
             $table->timestamps();
         });
 
-        Schema::create('organization_user', function (Blueprint $table) {
+        Schema::create('kaveh_organization_user', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('organization_id')->constrained('kaveh_organizations')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('role')->default('owner');
             $table->timestamps();
             $table->unique(['organization_id', 'user_id']);
         });
 
-        Schema::create('projects', function (Blueprint $table) {
+        Schema::create('kaveh_projects', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('organization_id')->constrained('kaveh_organizations')->cascadeOnDelete();
             $table->string('name');
             $table->string('slug');
             $table->unsignedInteger('retention_days')->default(14);
@@ -35,9 +35,9 @@ return new class extends Migration
             $table->unique(['organization_id', 'slug']);
         });
 
-        Schema::create('api_keys', function (Blueprint $table) {
+        Schema::create('kaveh_api_keys', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('project_id')->constrained('kaveh_projects')->cascadeOnDelete();
             $table->string('name');
             $table->string('key_prefix', 12);
             $table->string('key_hash', 64)->unique();
@@ -46,9 +46,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('events', function (Blueprint $table) {
+        Schema::create('kaveh_events', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('project_id')->constrained('kaveh_projects')->cascadeOnDelete();
             $table->string('uuid')->index();
             $table->string('type', 32)->index();
             $table->string('name')->index();
@@ -65,18 +65,9 @@ return new class extends Migration
             $table->unique(['project_id', 'uuid']);
         });
 
-        Schema::create('event_embeddings', function (Blueprint $table) {
+        Schema::create('kaveh_alert_rules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('event_id')->constrained('events')->cascadeOnDelete();
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
-            $table->text('content');
-            $table->json('embedding')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('alert_rules', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('project_id')->constrained('kaveh_projects')->cascadeOnDelete();
             $table->string('name');
             $table->string('metric'); // exception_rate, failed_jobs, custom_event
             $table->string('event_name')->nullable();
@@ -90,9 +81,9 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('alert_firings', function (Blueprint $table) {
+        Schema::create('kaveh_alert_firings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('alert_rule_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('alert_rule_id')->constrained('kaveh_alert_rules')->cascadeOnDelete();
             $table->unsignedInteger('count');
             $table->json('meta')->nullable();
             $table->timestamps();
@@ -101,13 +92,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('alert_firings');
-        Schema::dropIfExists('alert_rules');
-        Schema::dropIfExists('event_embeddings');
-        Schema::dropIfExists('events');
-        Schema::dropIfExists('api_keys');
-        Schema::dropIfExists('projects');
-        Schema::dropIfExists('organization_user');
-        Schema::dropIfExists('organizations');
+        // Only the kaveh_* names are dropped here. The <= 0.1.4 generic names
+        // are never dropped by Kaveh: `events`/`projects` may belong to the host
+        // app. See 2026_08_09_000001_rename_legacy_server_tables.
+        Schema::dropIfExists('kaveh_alert_firings');
+        Schema::dropIfExists('kaveh_alert_rules');
+        Schema::dropIfExists('kaveh_events');
+        Schema::dropIfExists('kaveh_api_keys');
+        Schema::dropIfExists('kaveh_projects');
+        Schema::dropIfExists('kaveh_organization_user');
+        Schema::dropIfExists('kaveh_organizations');
     }
 };

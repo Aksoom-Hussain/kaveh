@@ -34,10 +34,12 @@ final class CheckCommand extends Command
 
     public function handle(RemoteTransport $remote, LocalEventStore $local): int
     {
+        // A disabled feature is not a command failure — this runs under
+        // supervisord / the scheduler, which would otherwise restart-loop.
         if (! config('kaveh.enabled')) {
-            $this->warn('Kaveh is disabled (KAVEH_ENABLED=false).');
+            $this->components->warn('Kaveh is disabled (KAVEH_ENABLED=false). Nothing to sample.');
 
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
         $role = (string) config('kaveh.role', 'client');
@@ -48,12 +50,19 @@ final class CheckCommand extends Command
         }
 
         if (! config('kaveh.check.enabled', true)) {
-            $this->warn('System check is disabled (KAVEH_CHECK_ENABLED=false).');
+            $this->components->warn('System check is disabled (KAVEH_CHECK_ENABLED=false). Nothing to sample.');
 
-            return self::FAILURE;
+            return self::SUCCESS;
         }
 
-        $interval = max(5, (int) ($this->option('interval') ?: config('kaveh.check.interval', 15)));
+        $option = $this->option('interval');
+        if ($option !== null && $option !== '' && ! is_numeric($option)) {
+            $this->components->error('--interval must be a number of seconds.');
+
+            return self::INVALID;
+        }
+
+        $interval = max(5, (int) ($option ?: config('kaveh.check.interval', 15)));
         $once = (bool) $this->option('once');
 
         $this->info($once

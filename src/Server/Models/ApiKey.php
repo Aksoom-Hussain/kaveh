@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class ApiKey extends Model
 {
+    protected $table = 'kaveh_api_keys';
+
     protected $fillable = [
         'project_id',
         'name',

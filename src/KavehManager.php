@@ -40,7 +40,7 @@ final class KavehManager
                 environment: (string) config('kaveh.environment'),
                 hostname: gethostname() ?: 'unknown',
                 traceId: $this->currentTraceId(),
-                user: $this->currentUser(),
+                user: $this->redactor->redactUser($this->currentUser()),
                 context: $this->redactor->redact($context),
                 tags: $tags,
                 level: $level,

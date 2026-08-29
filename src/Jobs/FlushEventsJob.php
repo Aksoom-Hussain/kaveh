@@ -13,6 +13,7 @@ use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\IngestBatch;
 use Kaveh\Support\Silencer;
 use Kaveh\Transport\RemoteTransport;
+use RuntimeException;
 
 final class FlushEventsJob implements ShouldQueue
 {
@@ -20,6 +21,11 @@ final class FlushEventsJob implements ShouldQueue
     use InteractsWithQueue;
     use Queueable;
     use SerializesModels;
+
+    public int $tries = 5;
+
+    /** @var list<int> */
+    public array $backoff = [10, 30, 120, 600];
 
     /**
      * @param  list<array<string, mixed>>  $events
@@ -30,21 +36,24 @@ final class FlushEventsJob implements ShouldQueue
 
     public function handle(RemoteTransport $transport): void
     {
-        Silencer::run(function () use ($transport): void {
-            $envelopes = [];
-            foreach ($this->events as $payload) {
-                try {
-                    $envelopes[] = EventEnvelope::fromArray($payload);
-                } catch (\Throwable $e) {
-                    Silencer::report($e);
-                }
+        $envelopes = [];
+        foreach ($this->events as $payload) {
+            try {
+                $envelopes[] = EventEnvelope::fromArray($payload);
+            } catch (\Throwable $e) {
+                // A single unparseable payload must not cost the rest of the batch.
+                Silencer::report($e);
             }
+        }
 
-            if ($envelopes === []) {
-                return;
-            }
+        if ($envelopes === []) {
+            return;
+        }
 
-            $transport->send(new IngestBatch($envelopes, gmdate('c')));
-        });
+        if (! $transport->send(new IngestBatch($envelopes, gmdate('c')))) {
+            // Queue worker, not the host request path: throwing is what the
+            // retry/backoff machinery is for, and failed_jobs is the dead letter.
+            throw new RuntimeException('Kaveh: ingest send failed for '.count($envelopes).' events.');
+        }
     }
 }

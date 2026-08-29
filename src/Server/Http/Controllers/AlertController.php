@@ -63,7 +63,7 @@ class AlertController extends Controller
 
     private function authorizeRule(AlertRule $rule): void
     {
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
+        $orgIds = Auth::user()->organizations()->pluck('kaveh_organizations.id');
         abort_unless(
             Project::query()->whereKey($rule->project_id)->whereIn('organization_id', $orgIds)->exists(),
             403

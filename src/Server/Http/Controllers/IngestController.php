@@ -2,12 +2,10 @@
 
 namespace Kaveh\Server\Http\Controllers;
 
-use Kaveh\Server\Jobs\EmbedEventJob;
 use Kaveh\Server\Models\EventRecord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Kaveh\Contracts\EventEnvelope;
 use Kaveh\Contracts\IngestBatch;
 
@@ -30,16 +28,21 @@ class IngestController extends Controller
         $duplicates = 0;
         $errors = [];
 
-        DB::transaction(function () use ($raw, $project, &$accepted, &$duplicates, &$errors) {
-            foreach ($raw['events'] as $index => $eventData) {
+        // No outer transaction, and every event is isolated: the client has
+        // already discarded the batch, so one bad event must not destroy 499
+        // good ones. Rejects go out through the existing 207 partial path.
+        foreach ($raw['events'] as $index => $eventData) {
+            try {
                 if (! is_array($eventData)) {
                     $errors[] = "events.$index must be an object";
+
                     continue;
                 }
 
                 $validation = EventEnvelope::validate($eventData);
                 if ($validation !== []) {
                     $errors[] = "events.$index: ".implode('; ', $validation);
+
                     continue;
                 }
 
@@ -52,10 +55,11 @@ class IngestController extends Controller
 
                 if ($existing) {
                     $duplicates++;
+
                     continue;
                 }
 
-                $record = EventRecord::query()->create([
+                EventRecord::query()->create([
                     'project_id' => $project->id,
                     'uuid' => $envelope->id,
                     'type' => $envelope->type->value,
@@ -71,13 +75,13 @@ class IngestController extends Controller
                     'occurred_at' => Carbon::parse($envelope->timestamp)->utc(),
                 ]);
 
-                // Skip embeddings for high-frequency host gauges.
-                if ($envelope->type !== \Kaveh\Contracts\EventType::System) {
-                    EmbedEventJob::dispatch($record->id);
-                }
                 $accepted++;
+            } catch (\Throwable $e) {
+                // Unparseable timestamp, over-length column, driver error — the
+                // event is rejected, the batch continues.
+                $errors[] = "events.$index: ".$e->getMessage();
             }
-        });
+        }
 
         return response()->json([
             'accepted' => $accepted,
@@ -94,16 +98,53 @@ class IngestController extends Controller
         $content = $request->getContent();
         $encoding = strtolower((string) $request->header('Content-Encoding', ''));
 
-        if ($encoding === 'gzip' && function_exists('gzdecode')) {
-            $decoded = @gzdecode($content);
-            if ($decoded === false) {
+        if ($encoding === 'gzip' && function_exists('inflate_init')) {
+            $decoded = $this->inflate($content);
+            if ($decoded === null) {
                 return null;
             }
+
             $content = $decoded;
         }
 
         $json = json_decode($content, true);
 
         return is_array($json) ? $json : null;
+    }
+
+    /**
+     * Stream-inflate a gzip body with a hard ceiling on the decompressed size,
+     * so a small bomb can't expand into all the memory the box has. 413 past
+     * the cap; null when the body simply isn't valid gzip.
+     */
+    private function inflate(string $content): ?string
+    {
+        $max = (int) config('kaveh.server.max_decompressed_bytes', 16 * 1024 * 1024);
+
+        $context = @inflate_init(ZLIB_ENCODING_GZIP);
+        if ($context === false) {
+            return null;
+        }
+
+        $out = '';
+        foreach (str_split($content, 8192) ?: [''] as $chunk) {
+            $piece = @inflate_add($context, $chunk);
+            if ($piece === false) {
+                return null;
+            }
+
+            $out .= $piece;
+            abort_if(strlen($out) > $max, 413, 'Payload too large');
+        }
+
+        $piece = @inflate_add($context, '', ZLIB_FINISH);
+        if ($piece === false) {
+            return null;
+        }
+
+        $out .= $piece;
+        abort_if(strlen($out) > $max, 413, 'Payload too large');
+
+        return $out;
     }
 }

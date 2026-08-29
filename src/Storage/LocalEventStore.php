@@ -15,7 +15,7 @@ final class LocalEventStore
     {
         Silencer::run(function () use ($event): void {
             $connection = config('kaveh.local.connection');
-            $table = (string) config('kaveh.local.table', 'kaveh_events');
+            $table = (string) config('kaveh.local.table', 'kaveh_client_events');
 
             $query = $connection ? DB::connection($connection)->table($table) : DB::table($table);
 
@@ -40,11 +40,13 @@ final class LocalEventStore
 
     public function prune(): int
     {
-        $hours = (int) config('kaveh.local.retention_hours', 48);
-        $connection = config('kaveh.local.connection');
-        $table = (string) config('kaveh.local.table', 'kaveh_events');
-        $query = $connection ? DB::connection($connection)->table($table) : DB::table($table);
+        return (int) Silencer::run(function (): int {
+            $hours = (int) config('kaveh.local.retention_hours', 48);
+            $connection = config('kaveh.local.connection');
+            $table = (string) config('kaveh.local.table', 'kaveh_client_events');
+            $query = $connection ? DB::connection($connection)->table($table) : DB::table($table);
 
-        return $query->where('created_at', '<', now()->subHours($hours))->delete();
+            return $query->where('created_at', '<', now()->subHours($hours))->delete();
+        }, 0);
     }
 }

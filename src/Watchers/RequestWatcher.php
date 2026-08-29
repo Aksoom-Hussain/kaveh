@@ -141,7 +141,11 @@ final class RequestWatcher
      */
     private function sessionVariables(Request $request): array
     {
-        if (! $request->hasSession()) {
+        // Never dump the session wholesale — apps keep OAuth tokens, impersonation
+        // state and cart PII in there. Opt in per key via the `session_keys` option.
+        $allowed = array_map('strval', (array) ($this->options()['session_keys'] ?? []));
+
+        if ($allowed === [] || ! $request->hasSession()) {
             return [];
         }
 
@@ -149,7 +153,7 @@ final class RequestWatcher
             /** @var array<string, mixed> $session */
             $session = $request->session()->all();
 
-            return $this->hideParameters($session, $this->hiddenRequestParameters());
+            return array_intersect_key($session, array_flip($allowed));
         } catch (Throwable) {
             return [];
         }
@@ -242,7 +246,9 @@ final class RequestWatcher
     {
         foreach ($hidden as $parameter) {
             if (Arr::has($data, $parameter)) {
-                Arr::set($data, $parameter, '********');
+                // Same mask the Redactor uses, so a value is never masked twice
+                // with two different markers on its way to the wire.
+                Arr::set($data, $parameter, Redactor::MASK);
             }
         }
 

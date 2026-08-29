@@ -2,13 +2,19 @@
 
 namespace Kaveh\Server\Console\Commands;
 
-use Kaveh\Server\Models\EventEmbedding;
+use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Kaveh\Server\Models\EventRecord;
 use Kaveh\Server\Models\Project;
-use Illuminate\Console\Command;
 
 class PruneEventsCommand extends Command
 {
+    /** Rows deleted per statement — small enough not to blow up memory or lock tables. */
+    private const CHUNK = 1000;
+
+    /** Safety stop so a runaway loop cannot spin forever: CHUNK * this per project per phase. */
+    private const MAX_CHUNKS = 1000;
+
     protected $signature = 'kaveh:prune-events';
 
     protected $description = 'Prune events past per-project retention and enforce max_events quotas';
@@ -19,31 +25,45 @@ class PruneEventsCommand extends Command
 
         Project::query()->each(function (Project $project) use (&$deleted) {
             $cutoff = now()->subDays($project->retention_days);
-            $ids = EventRecord::query()
+
+            // Both phases drain in chunks: a single capped pass leaves a large
+            // backlog permanently behind on a daily schedule.
+            $deleted += $this->drain(fn () => EventRecord::query()
                 ->where('project_id', $project->id)
                 ->where('occurred_at', '<', $cutoff)
-                ->pluck('id');
+                ->take(self::CHUNK)
+                ->pluck('id'));
 
-            if ($ids->isNotEmpty()) {
-                EventEmbedding::query()->whereIn('event_id', $ids)->delete();
-                $deleted += EventRecord::query()->whereIn('id', $ids)->delete();
-            }
-
-            $overflow = EventRecord::query()
+            $deleted += $this->drain(fn () => EventRecord::query()
                 ->where('project_id', $project->id)
                 ->orderByDesc('occurred_at')
                 ->skip($project->max_events)
-                ->take(5000)
-                ->pluck('id');
-
-            if ($overflow->isNotEmpty()) {
-                EventEmbedding::query()->whereIn('event_id', $overflow)->delete();
-                $deleted += EventRecord::query()->whereIn('id', $overflow)->delete();
-            }
+                ->take(self::CHUNK)
+                ->pluck('id'));
         });
 
         $this->info("Pruned {$deleted} events.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  callable(): Collection<int, mixed>  $next
+     */
+    private function drain(callable $next): int
+    {
+        $deleted = 0;
+
+        for ($i = 0; $i < self::MAX_CHUNKS; $i++) {
+            $ids = $next();
+
+            if ($ids->isEmpty()) {
+                break;
+            }
+
+            $deleted += EventRecord::query()->whereIn('id', $ids)->delete();
+        }
+
+        return $deleted;
     }
 }

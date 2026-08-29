@@ -123,7 +123,7 @@ final class DashboardFilter
             return collect();
         }
 
-        $orgIds = $user->organizations()->pluck('organizations.id');
+        $orgIds = $user->organizations()->pluck('kaveh_organizations.id');
 
         return Project::query()->whereIn('organization_id', $orgIds)->orderBy('name')->get();
     }

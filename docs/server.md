@@ -85,7 +85,7 @@ KAVEH_PATH=kaveh
 # Do NOT enable client watchers on a busy dedicated monitor if you can avoid it
 ```
 
-Run a queue worker on the server for alert/embed jobs if those features are enabled.
+Run a queue worker on the server if you use queued alert notifications.
 
 ## Troubleshooting “no data”
 

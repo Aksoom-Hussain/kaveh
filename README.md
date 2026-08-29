@@ -25,7 +25,7 @@ php artisan kaveh:install
 | You need request / exception / job visibility | Built-in watchers (Telescope-style) |
 | You want Pulse-like graphs | Dashboard charts + optional `laravel/pulse` metrics API |
 | Multiple apps, one ops dashboard | Projects + API keys (multi-tenant ingest) |
-| “What failed for checkout today?” | Custom `Kaveh::track()` events + optional event RAG |
+| “What failed for checkout today?” | Custom `Kaveh::track()` events, searchable by name and tag |
 
 ---
 
@@ -189,7 +189,7 @@ Publishes:
 
 Request watcher ignores `/kaveh/*`, `/pulse/*`, `/telescope/*`, `/api/v1/ingest`, Livewire, etc. Add more with `KAVEH_IGNORE_PATHS`.
 
-Kaveh’s own jobs (`FlushEventsJob`, `EmbedEventJob`, …) are ignored so the monitor does not flood itself.
+Kaveh’s own jobs (`FlushEventsJob`, anything under `Kaveh\`) are ignored so the monitor does not flood itself.
 
 ---
 
@@ -216,7 +216,7 @@ Gate::define('viewKaveh', function ($user) {
 });
 ```
 
-Default: open in `local`, denied elsewhere until you customize the gate.
+**Defaults are permissive — tighten them before going public.** The published `app/Providers/KavehServiceProvider.php` stub returns `true` for any authenticated user. If that provider is not registered, the package's built-in default allows access in the `local` environment *or* to any authenticated user.
 
 ### Optional Pulse graphs
 
@@ -254,7 +254,7 @@ Content-Type: application/json
 }
 ```
 
-- `202` accepted · `401` bad key · `422` invalid · `429` rate limited  
+- `202` accepted · `207` partial (per-event; the valid ones are still stored) · `401` bad key · `413` gzip body over `KAVEH_MAX_DECOMPRESSED_BYTES` (16 MB) · `422` invalid · `429` rate limited  
 - Duplicate event ids per project are ignored (idempotent)
 
 cURL check:
@@ -337,13 +337,26 @@ More: [docs/security.md](docs/security.md)
 | [docs/server.md](docs/server.md) | Server install, dashboard, alerts, keys |
 | [docs/ingest-api.md](docs/ingest-api.md) | Ingest payload reference |
 | [docs/custom-events.md](docs/custom-events.md) | Snippets for billing, queues, webhooks |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, per release |
+| [UPGRADE.md](UPGRADE.md) | 0.1.4 → 0.2.0 upgrade guide |
+
+---
+
+## Upgrading from 0.1.4
+
+The server tables are now prefixed (`kaveh_organizations`, `kaveh_organization_user`, `kaveh_projects`, `kaveh_api_keys`, `kaveh_events`, `kaveh_alert_rules`, `kaveh_alert_firings`) so they cannot collide with a host app's tables under `role=both`. The client buffer table is `kaveh_client_events`.
+
+`php artisan migrate` renames 0.1.4's unprefixed tables in place and keeps the data. It only renames a table whose column set matches 0.1.4 exactly and whose `kaveh_*` target is free; anything ambiguous aborts the batch with a warning rather than touching a host table.
+
+There is more to it than the tables — RAG/chat and its `openai_*` config keys are gone, `redact.keys` is now additive, and `kaveh:install` no longer overwrites a published config. **Follow [UPGRADE.md](UPGRADE.md)**, which has the ordered procedure and a verification step.
 
 ---
 
 ## Development
 
 ```bash
-composer test
+composer install
+composer test        # or: ./vendor/bin/phpunit
 ```
 
 Package layout: `src/`, `config/`, `routes/`, `resources/views/`, `database/migrations/`, `stubs/`, `docs/`.

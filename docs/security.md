@@ -14,7 +14,7 @@ Never leave the default “open in local only” gate unchanged on a public serv
 
 ## Redaction
 
-Client redactor strips common secrets from context and headers before events leave the app (passwords, tokens, authorization headers, etc.). Still avoid putting raw secrets in `Kaveh::track()` context.
+Client redactor strips secret-looking keys from context and headers before events leave the app. Matching is substring-based over a built-in pattern list (`password`, `token`, `apikey`, `auth`, `cookie`, `ssn`, …), so `accessToken` and `X-Auth-Token` are covered without being listed. `kaveh.redact.keys` **adds** to that floor rather than replacing it. It is blunt on purpose — `auth` also masks `author`. Still avoid putting raw secrets in `Kaveh::track()` context.
 
 ## Fail-soft client
 

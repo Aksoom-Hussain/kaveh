@@ -90,8 +90,7 @@ final class JobWatcher
     private function shouldIgnore(string $jobName): bool
     {
         return str_starts_with($jobName, 'Kaveh\\')
-            || str_contains($jobName, 'FlushEventsJob')
-            || str_contains($jobName, 'EmbedEventJob');
+            || str_contains($jobName, 'FlushEventsJob');
     }
 
     private function jobKey(object $job): ?string

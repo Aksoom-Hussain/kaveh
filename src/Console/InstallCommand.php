@@ -20,6 +20,7 @@ final class InstallCommand extends Command
         {--server-url= : Remote Kaveh server URL}
         {--api-key= : Project API key for remote mode}
         {--no-migrate : Skip running migrations}
+        {--force : Overwrite an existing config/provider (a .bak copy is kept)}
         {--non-interactive : Do not ask questions}';
 
     protected $description = 'Install Kaveh and write the config you need for client and/or server';
@@ -28,22 +29,25 @@ final class InstallCommand extends Command
     {
         $this->components->info('Installing Kaveh');
 
-        $this->call('vendor:publish', [
-            '--provider' => 'Kaveh\\KavehServiceProvider',
-            '--tag' => 'kaveh-config',
-            '--force' => true,
-        ]);
-
-        $this->call('vendor:publish', [
-            '--provider' => 'Kaveh\\KavehServiceProvider',
-            '--tag' => 'kaveh-provider',
-            '--force' => true,
-        ]);
+        $this->publishTag('kaveh-config', config_path('kaveh.php'));
+        $this->publishTag('kaveh-provider', app_path('Providers/KavehServiceProvider.php'));
 
         $this->registerKavehServiceProvider();
 
         $role = $this->resolveRole();
-        $env = ['KAVEH_ENABLED' => 'true', 'KAVEH_ROLE' => $role];
+        if ($role === null) {
+            return self::FAILURE;
+        }
+
+        $serverRole = in_array($role, ['server', 'both'], true);
+
+        // Written unconditionally: a client install must clear a KAVEH_SERVER_ENABLED=true
+        // left behind by an earlier server install, or the provider ORs it back in.
+        $env = [
+            'KAVEH_ENABLED' => 'true',
+            'KAVEH_ROLE' => $role,
+            'KAVEH_SERVER_ENABLED' => $serverRole ? 'true' : 'false',
+        ];
 
         if (in_array($role, ['client', 'both'], true)) {
             $env = array_merge($env, $this->configureClient($role));
@@ -56,8 +60,12 @@ final class InstallCommand extends Command
         $this->writeEnv($env);
         $this->rewritePublishedConfig($role, $env);
 
-        if (! $this->option('no-migrate')) {
-            $this->call('migrate');
+        $this->registerRoleMigrations($role);
+
+        if (! $this->option('no-migrate') && $this->call('migrate') !== self::SUCCESS) {
+            $this->components->error('Migrations failed — fix the database and re-run kaveh:install.');
+
+            return self::FAILURE;
         }
 
         if (in_array($role, ['server', 'both'], true) && $this->shouldSeedServer()) {
@@ -86,7 +94,60 @@ final class InstallCommand extends Command
         return self::SUCCESS;
     }
 
-    private function resolveRole(): string
+    /**
+     * boot() chose which migration directories to load from the config as it was
+     * *before* this command wrote .env, so on a first run the chosen role's
+     * migrations are not registered and `migrate` reports "Nothing to migrate".
+     * Register them here so a single install actually creates the tables.
+     */
+    private function registerRoleMigrations(string $role): void
+    {
+        $base = __DIR__.'/../../database/migrations/';
+        $paths = [];
+        if (in_array($role, ['client', 'both'], true)) {
+            $paths[] = $base.'client';
+        }
+        if (in_array($role, ['server', 'both'], true)) {
+            $paths[] = $base.'server';
+        }
+
+        foreach ($paths as $path) {
+            $this->laravel['migrator']->path($path);
+        }
+    }
+
+    /**
+     * Publish one tag without clobbering a file the app already customized.
+     * Re-running kaveh:install on upgrade must never silently eat a hand-edited
+     * viewKaveh gate or config; --force overwrites but keeps a .bak copy.
+     */
+    private function publishTag(string $tag, string $target): void
+    {
+        $exists = File::exists($target);
+
+        if ($exists && ! $this->option('force')) {
+            $this->components->twoColumnDetail(
+                basename($target),
+                '<fg=yellow>exists — kept</> (--force to overwrite)'
+            );
+
+            return;
+        }
+
+        if ($exists) {
+            $backup = $target.'.bak.'.date('YmdHis');
+            File::copy($target, $backup);
+            $this->components->twoColumnDetail(basename($target), 'backed up to '.basename($backup));
+        }
+
+        $this->call('vendor:publish', [
+            '--provider' => 'Kaveh\\KavehServiceProvider',
+            '--tag' => $tag,
+            '--force' => true,
+        ]);
+    }
+
+    private function resolveRole(): ?string
     {
         $role = $this->option('role');
         if (! $role && ! $this->option('non-interactive') && $this->input->isInteractive()) {
@@ -94,7 +155,7 @@ final class InstallCommand extends Command
                 'What are you installing?',
                 [
                     'client' => 'Client — track events on this app (local and/or ship remote)',
-                    'server' => 'Server — ingest API + dashboard + alerts + RAG',
+                    'server' => 'Server — ingest API + dashboard + alerts',
                     'both' => 'Both — client and server on this app',
                 ],
                 'client'
@@ -103,8 +164,9 @@ final class InstallCommand extends Command
 
         $role = $role ?: 'client';
         if (! in_array($role, ['client', 'server', 'both'], true)) {
-            $this->error('Invalid --role. Use client, server, or both.');
-            exit(1);
+            $this->components->error('Invalid --role "'.$role.'". Use client, server, or both.');
+
+            return null;
         }
 
         return $role;

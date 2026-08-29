@@ -191,7 +191,7 @@ class DashboardController extends Controller
 
     private function authorizeEvent(EventRecord $event): void
     {
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
+        $orgIds = Auth::user()->organizations()->pluck('kaveh_organizations.id');
         abort_unless(
             Project::query()->whereKey($event->project_id)->whereIn('organization_id', $orgIds)->exists(),
             403

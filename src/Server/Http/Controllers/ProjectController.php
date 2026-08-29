@@ -16,7 +16,7 @@ class ProjectController extends Controller
 {
     public function index(): View
     {
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
+        $orgIds = Auth::user()->organizations()->pluck('kaveh_organizations.id');
         $projects = Project::query()->whereIn('organization_id', $orgIds)->with('apiKeys')->get();
 
         return view('kaveh::projects.index', compact('projects'));
@@ -47,7 +47,7 @@ class ProjectController extends Controller
 
     public function createKey(Request $request, Project $project): RedirectResponse
     {
-        $this->authorizeProject($project);
+        $this->authorizeProject((int) $project->id);
         $data = $request->validate(['name' => ['required', 'string', 'max:120']]);
         $issued = ApiKey::issue($project, $data['name']);
         ProjectOnboarding::flashExisting($project, $issued['plain']);
@@ -57,7 +57,7 @@ class ProjectController extends Controller
 
     public function revokeKey(Project $project, ApiKey $apiKey): RedirectResponse
     {
-        $this->authorizeProject($project);
+        $this->authorizeProject((int) $project->id);
         abort_unless($apiKey->project_id === $project->id, 404);
         $apiKey->forceFill(['revoked_at' => now()])->save();
 
@@ -66,7 +66,7 @@ class ProjectController extends Controller
 
     public function destroyKey(Project $project, ApiKey $apiKey): RedirectResponse
     {
-        $this->authorizeProject($project);
+        $this->authorizeProject((int) $project->id);
         abort_unless($apiKey->project_id === $project->id, 404);
         abort_unless($apiKey->revoked_at !== null, 422, 'Revoke the key before deleting it.');
 
@@ -93,7 +93,7 @@ class ProjectController extends Controller
             return;
         }
 
-        $orgIds = $user->organizations()->pluck('organizations.id');
+        $orgIds = $user->organizations()->pluck('kaveh_organizations.id');
         if ($orgIds->isEmpty()) {
             return;
         }
@@ -113,11 +113,5 @@ class ProjectController extends Controller
         $project = $projects->first();
         ProjectOnboarding::flash($project, 'onboarding');
         ProjectOnboarding::markSeen((int) $user->id);
-    }
-
-    private function authorizeProject(Project $project): void
-    {
-        $orgIds = Auth::user()->organizations()->pluck('organizations.id');
-        abort_unless($orgIds->contains($project->organization_id), 403);
     }
 }

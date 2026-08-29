@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Kaveh\Http\Middleware\Authenticate;
 use Kaveh\Http\Middleware\Authorize;
 use Kaveh\Http\Middleware\ShareDashboardFilters;
+use Kaveh\Support\Redactor;
+use Kaveh\Transport\EventBuffer;
 use Kaveh\Watchers\ExceptionWatcher;
 use Kaveh\Watchers\JobWatcher;
 use Kaveh\Watchers\LogWatcher;
@@ -64,7 +66,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | client — Telescope-like watchers + track() (local and/or remote ship)
-    | server — Pulse-like dashboard + ingest API + alerts + event RAG
+    | server — Pulse-like dashboard + ingest API + alerts
     | both   — double-edged sword on one app
     |
     */
@@ -85,9 +87,12 @@ return [
 
     'batch' => [
         'size' => (int) env('KAVEH_BATCH_SIZE', 50),
-        'flush_interval_seconds' => (int) env('KAVEH_FLUSH_INTERVAL', 10),
         'use_queue' => (bool) env('KAVEH_USE_QUEUE', true),
         'queue' => env('KAVEH_QUEUE', 'default'),
+        // Ceiling on events held in memory awaiting a successful ship, and the
+        // cooldown after a failed send before the size-threshold flush retries.
+        'max_pending' => (int) env('KAVEH_MAX_PENDING', EventBuffer::MAX_PENDING_EVENTS),
+        'retry_cooldown' => (int) env('KAVEH_RETRY_COOLDOWN', EventBuffer::RETRY_COOLDOWN_SECONDS),
     ],
 
     'sample_rate' => (float) env('KAVEH_SAMPLE_RATE', 1.0),
@@ -115,7 +120,7 @@ return [
 
     'local' => [
         'connection' => env('KAVEH_DB_CONNECTION'),
-        'table' => 'kaveh_events',
+        'table' => 'kaveh_client_events',
         'retention_hours' => (int) env('KAVEH_LOCAL_RETENTION_HOURS', 48),
     ],
 
@@ -127,6 +132,8 @@ return [
         'headers' => [
             'authorization', 'cookie', 'x-api-key', 'x-csrf-token',
         ],
+        // Substring patterns matched against *any* key, at any depth.
+        'key_patterns' => Redactor::SECRET_PATTERNS,
     ],
 
     /*
@@ -161,6 +168,9 @@ return [
             'enabled' => env('KAVEH_WATCH_REQUESTS', true),
             // Telescope-compatible size limit for JSON / text response bodies (KB).
             'size_limit' => (int) env('KAVEH_REQUEST_SIZE_LIMIT', 64),
+            // Session keys to include in captured context. Empty = no session
+            // data leaves the app; opt in per key, never wholesale.
+            'session_keys' => [],
             'ignore_http_methods' => [],
             'ignore_status_codes' => [],
             'hidden_request_parameters' => [
@@ -199,7 +209,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Server (dashboard / ingest / RAG / alerts)
+    | Server (dashboard / ingest / alerts)
     |--------------------------------------------------------------------------
     */
 
@@ -209,10 +219,8 @@ return [
         'path_prefix' => env('KAVEH_PATH', env('KAVEH_PATH_PREFIX', 'kaveh')),
         'user_model' => env('KAVEH_USER_MODEL', \App\Models\User::class),
         'registers_routes' => env('KAVEH_REGISTER_ROUTES', true),
+        // Hard ceiling on a gzip-encoded ingest body after decompression (bomb guard).
+        'max_decompressed_bytes' => (int) env('KAVEH_MAX_DECOMPRESSED_BYTES', 16 * 1024 * 1024),
     ],
 
-    'openai_api_key' => env('KAVEH_OPENAI_API_KEY', env('OPENAI_API_KEY')),
-    'openai_base_url' => env('KAVEH_OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-    'embedding_model' => env('KAVEH_EMBEDDING_MODEL', 'text-embedding-3-small'),
-    'chat_model' => env('KAVEH_CHAT_MODEL', 'gpt-4o-mini'),
 ];

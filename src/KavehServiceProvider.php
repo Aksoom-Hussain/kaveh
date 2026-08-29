@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kaveh;
 
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -194,9 +194,17 @@ class KavehServiceProvider extends ServiceProvider
      */
     protected function registerAuthorization(): void
     {
+        // Must be the Gate *contract* — the facade class is never bound in the
+        // container, so callAfterResolving(Facades\Gate::class) never fires and
+        // the gate stays undefined, denying every dashboard request.
         $this->callAfterResolving(Gate::class, function (Gate $gate, Application $app): void {
+            if ($gate->has('viewKaveh')) {
+                // A host app (published App\Providers\KavehServiceProvider) already
+                // defined it — never clobber that.
+                return;
+            }
+
             // Same default as Pulse viewPulse — open in local only.
-            // Publish + register App\Providers\KavehServiceProvider to customize.
             $gate->define('viewKaveh', fn ($user = null) => $app->environment('local') || $user !== null);
         });
     }
@@ -264,7 +272,11 @@ class KavehServiceProvider extends ServiceProvider
         $userModel = config('kaveh.server.user_model', \App\Models\User::class);
         if (class_exists($userModel) && method_exists($userModel, 'resolveRelationUsing')) {
             $userModel::resolveRelationUsing('organizations', function ($user) {
-                return $user->belongsToMany(Organization::class)->withPivot('role')->withTimestamps();
+                // Pivot table and both keys are named explicitly: Eloquent would
+                // otherwise derive `organization_user` (pre-KV-10 name) and, on a
+                // host whose user model is not `User`, the wrong pivot key too.
+                return $user->belongsToMany(Organization::class, 'kaveh_organization_user', 'user_id', 'organization_id')
+                    ->withPivot('role')->withTimestamps();
             });
         }
     }
