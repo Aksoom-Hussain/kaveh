@@ -44,6 +44,7 @@ Route::middleware('kaveh')->group(function () {
 
     Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
+    Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
     Route::post('/projects/{project}/keys', [ProjectController::class, 'createKey'])->name('projects.keys.create');
     Route::delete('/projects/{project}/keys/{apiKey}', [ProjectController::class, 'revokeKey'])->name('projects.keys.revoke');
     Route::delete('/projects/{project}/keys/{apiKey}/force', [ProjectController::class, 'destroyKey'])->name('projects.keys.destroy');

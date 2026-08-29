@@ -5,6 +5,26 @@ All notable changes to `aksoom-hussain/kaveh` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-29
+
+### Added
+
+- **Delete project** — `DELETE /kaveh/projects/{project}` removes a project, its
+  API keys, alert rules, and events. Events are drained in 1,000-row chunks so
+  large projects do not lock the database or hit gateway timeouts.
+- `ProjectDeleteTest` covering authorised delete and cross-org denial.
+
+### Fixed
+
+- **Projects page** — `ShareDashboardFilters` no longer redirects Projects and
+  Alerts routes to add `project_id` / `range` query params (fixes broken create
+  flows and extra round-trips).
+- **Create project** — clearer validation errors and input preservation; friendly
+  message when the user has no linked organization instead of a 404 from
+  `firstOrFail()`.
+- **Projects list** — uses `$managedProjects` with eager-loaded API keys so the
+  list is not overwritten by the shared topbar `$projects` collection.
+
 ## [0.2.0] - 2026-08-27
 
 Upgrading from 0.1.x? Read [UPGRADE.md](UPGRADE.md) first — this release renames

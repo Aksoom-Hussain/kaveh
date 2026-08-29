@@ -17,9 +17,13 @@ class ProjectController extends Controller
     public function index(): View
     {
         $orgIds = Auth::user()->organizations()->pluck('kaveh_organizations.id');
-        $projects = Project::query()->whereIn('organization_id', $orgIds)->with('apiKeys')->get();
+        $managedProjects = Project::query()
+            ->whereIn('organization_id', $orgIds)
+            ->with('apiKeys')
+            ->orderBy('name')
+            ->get();
 
-        return view('kaveh::projects.index', compact('projects'));
+        return view('kaveh::projects.index', compact('managedProjects'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -29,7 +33,12 @@ class ProjectController extends Controller
             'retention_days' => ['nullable', 'integer', 'min:1', 'max:365'],
         ]);
 
-        $org = Auth::user()->organizations()->firstOrFail();
+        $org = Auth::user()->organizations()->first();
+        if (! $org) {
+            return back()
+                ->withErrors(['name' => 'Your account is not linked to an organization. Log out and register again, or ask an admin to add you.'])
+                ->withInput();
+        }
 
         $project = Project::query()->create([
             'organization_id' => $org->id,
@@ -43,6 +52,32 @@ class ProjectController extends Controller
         return redirect()
             ->route('kaveh.projects.index')
             ->with('status', 'Project created. Copy the install commands below.');
+    }
+
+    public function destroy(Project $project): RedirectResponse
+    {
+        $this->authorizeProject((int) $project->id);
+
+        $name = $project->name;
+        $projectId = (int) $project->id;
+
+        // Drain events in chunks — a single cascade delete on a large project
+        // can lock the table long enough to hit gateway timeouts.
+        while (EventRecord::query()->where('project_id', $projectId)->limit(1000)->delete() > 0) {
+            //
+        }
+
+        $project->apiKeys()->delete();
+        $project->alertRules()->delete();
+        $project->delete();
+
+        if ((int) session('kaveh_project_id') === $projectId) {
+            session()->forget('kaveh_project_id');
+        }
+
+        return redirect()
+            ->route('kaveh.projects.index')
+            ->with('status', "Project \"{$name}\" and its data were deleted.");
     }
 
     public function createKey(Request $request, Project $project): RedirectResponse
