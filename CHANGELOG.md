@@ -5,6 +5,19 @@ All notable changes to `aksoom-hussain/kaveh` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-10-20
+
+### Fixed
+
+- **Dashboard 504 Timeout & Worker Starvation** — Consolidated `DashboardController` aggregate queries into a single `GROUP BY type`, optimized recent events to use reverse index walk (`latest()->limit(25)`), and added 30-second caching.
+- **Metrics Polling Throttling** — Added 30-second cache to `MetricsController` (`insights`, `events`, `system`, `pulse`) to protect PHP-FPM and database threads from concurrent polling floods.
+- **Host Stats Query Optimization** — Bounded `DashboardInsights::servers()` to the latest 500 samples in memory rather than sorting millions of rows.
+- **Prune Command Infinite Loop** — Fixed `PruneEventsCommand` where `skip($project->max_events)` inside a chunk loop created an O(N²) scan hanging on large event tables. Resolved cutoff timestamp once before chunked draining.
+
+### Added
+
+- **Composite Performance Indexes** — Migration `2026_10_18_000001_add_performance_indexes_to_kaveh_events.php` adding `(project_id, occurred_at, type)` and `(project_id, type, occurred_at)` with idempotent `Schema::hasIndex` checks.
+
 ## [0.2.2] - 2026-08-29
 
 ### Added

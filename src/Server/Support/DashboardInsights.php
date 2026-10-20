@@ -52,13 +52,13 @@ final class DashboardInsights
         $rows = EventRecord::query()
             ->where('project_id', $this->projectId)
             ->where('type', 'system')
-            ->where('name', 'system.stats')
             ->where('occurred_at', '>=', $since)
-            ->orderBy('occurred_at')
+            ->latest('occurred_at')
+            ->limit(500)
             ->get(['occurred_at', 'hostname', 'context']);
 
         $byHost = [];
-        foreach ($rows as $row) {
+        foreach ($rows->sortBy('occurred_at') as $row) {
             $host = $row->hostname ?: 'unknown';
             $ctx = is_array($row->context) ? $row->context : [];
             $t = optional($row->occurred_at)?->utc()->toIso8601String() ?? gmdate('c');

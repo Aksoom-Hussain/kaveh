@@ -34,12 +34,19 @@ class PruneEventsCommand extends Command
                 ->take(self::CHUNK)
                 ->pluck('id'));
 
-            $deleted += $this->drain(fn () => EventRecord::query()
+            $quotaCutoff = EventRecord::query()
                 ->where('project_id', $project->id)
                 ->orderByDesc('occurred_at')
                 ->skip($project->max_events)
-                ->take(self::CHUNK)
-                ->pluck('id'));
+                ->value('occurred_at');
+
+            if ($quotaCutoff !== null) {
+                $deleted += $this->drain(fn () => EventRecord::query()
+                    ->where('project_id', $project->id)
+                    ->where('occurred_at', '<=', $quotaCutoff)
+                    ->take(self::CHUNK)
+                    ->pluck('id'));
+            }
         });
 
         $this->info("Pruned {$deleted} events.");

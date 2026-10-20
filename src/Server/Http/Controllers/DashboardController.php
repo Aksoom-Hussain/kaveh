@@ -20,26 +20,12 @@ class DashboardController extends Controller
         $project = $filters->project;
         $since = $filters->since();
 
-        $base = EventRecord::query()->where('project_id', $project?->id);
-
-        $stats = [
-            'total' => (clone $base)->where('occurred_at', '>=', $since)->count(),
-            'exceptions' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'exception')->count(),
-            'failed_jobs' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'job')->where('level', 'error')->count(),
-            'slow_queries' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'query')->count(),
-            'avg_request_ms' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'request')->avg('duration_ms'),
-        ];
-
-        $byType = EventRecord::query()
-            ->select('type', DB::raw('count(*) as aggregate'))
-            ->where('project_id', $project?->id)
-            ->where('occurred_at', '>=', $since)
-            ->groupBy('type')
-            ->pluck('aggregate', 'type');
+        $dashData = $this->getDashboardData($project, $since, $filters->range);
+        $stats = $dashData['stats'];
+        $byType = collect($dashData['byType']);
 
         $recent = EventRecord::query()
             ->where('project_id', $project?->id)
-            ->where('occurred_at', '>=', $since)
             ->latest('occurred_at')
             ->limit(25)
             ->get();
@@ -113,26 +99,12 @@ class DashboardController extends Controller
         $project = $filters->project;
         $since = $filters->since();
 
-        $base = EventRecord::query()->where('project_id', $project?->id);
-
-        $stats = [
-            'total' => (clone $base)->where('occurred_at', '>=', $since)->count(),
-            'exceptions' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'exception')->count(),
-            'failed_jobs' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'job')->where('level', 'error')->count(),
-            'slow_queries' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'query')->count(),
-            'avg_request_ms' => (clone $base)->where('occurred_at', '>=', $since)->where('type', 'request')->avg('duration_ms'),
-        ];
-
-        $byType = EventRecord::query()
-            ->select('type', DB::raw('count(*) as aggregate'))
-            ->where('project_id', $project?->id)
-            ->where('occurred_at', '>=', $since)
-            ->groupBy('type')
-            ->pluck('aggregate', 'type');
+        $dashData = $this->getDashboardData($project, $since, $filters->range);
+        $stats = $dashData['stats'];
+        $byType = collect($dashData['byType']);
 
         $recent = EventRecord::query()
             ->where('project_id', $project?->id)
-            ->where('occurred_at', '>=', $since)
             ->latest('occurred_at')
             ->limit(25)
             ->get();
@@ -196,5 +168,52 @@ class DashboardController extends Controller
             Project::query()->whereKey($event->project_id)->whereIn('organization_id', $orgIds)->exists(),
             403
         );
+    }
+
+    private function getDashboardData(?Project $project, \Illuminate\Support\Carbon $since, string $range): array
+    {
+        $cacheKey = "kaveh:dash_stats:{$project?->id}:{$range}";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 30, function () use ($project, $since) {
+            $base = EventRecord::query()->where('project_id', $project?->id);
+
+            $byType = EventRecord::query()
+                ->select('type', DB::raw('count(*) as aggregate'))
+                ->where('project_id', $project?->id)
+                ->where('occurred_at', '>=', $since)
+                ->groupBy('type')
+                ->pluck('aggregate', 'type')
+                ->all();
+
+            $failedJobs = 0;
+            if (($byType['job'] ?? 0) > 0) {
+                $failedJobs = (clone $base)
+                    ->where('occurred_at', '>=', $since)
+                    ->where('type', 'job')
+                    ->where('level', 'error')
+                    ->count();
+            }
+
+            $avgRequestMs = null;
+            if (($byType['request'] ?? 0) > 0) {
+                $avgRequestMs = (clone $base)
+                    ->where('occurred_at', '>=', $since)
+                    ->where('type', 'request')
+                    ->avg('duration_ms');
+            }
+
+            $stats = [
+                'total' => array_sum($byType),
+                'exceptions' => (int) ($byType['exception'] ?? 0),
+                'failed_jobs' => $failedJobs,
+                'slow_queries' => (int) ($byType['query'] ?? 0),
+                'avg_request_ms' => $avgRequestMs,
+            ];
+
+            return [
+                'stats' => $stats,
+                'byType' => $byType,
+            ];
+        });
     }
 }
