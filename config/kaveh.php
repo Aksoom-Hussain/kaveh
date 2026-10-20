@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 use Kaveh\Http\Middleware\Authenticate;
 use Kaveh\Http\Middleware\Authorize;
 use Kaveh\Http\Middleware\ShareDashboardFilters;
@@ -83,7 +81,24 @@ return [
 
     'server_url' => env('KAVEH_SERVER_URL', 'http://localhost:8080'),
     'api_key' => env('KAVEH_API_KEY', ''),
-    'timeout' => (int) env('KAVEH_TIMEOUT', 5),
+    'timeout' => (int) env('KAVEH_TIMEOUT', 3),
+    'connect_timeout' => (float) env('KAVEH_CONNECT_TIMEOUT', 1.0),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Circuit Breaker
+    |--------------------------------------------------------------------------
+    |
+    | When the remote ingest server fails N consecutive times, trip the
+    | circuit open for `cooldown` seconds to avoid repeatedly stalling
+    | workers with doomed network attempts.
+    |
+    */
+    'circuit_breaker' => [
+        'enabled' => filter_var(env('KAVEH_CIRCUIT_BREAKER_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'threshold' => (int) env('KAVEH_CIRCUIT_BREAKER_THRESHOLD', 3),
+        'cooldown' => (int) env('KAVEH_CIRCUIT_BREAKER_COOLDOWN', 60),
+    ],
 
     'batch' => [
         'size' => (int) env('KAVEH_BATCH_SIZE', 50),
@@ -195,7 +210,7 @@ return [
         JobWatcher::class => env('KAVEH_WATCH_JOBS', true),
 
         LogWatcher::class => [
-            'enabled' => env('KAVEH_WATCH_LOGS', false),
+            'enabled' => env('KAVEH_WATCH_LOGS', true),
         ],
     ],
 

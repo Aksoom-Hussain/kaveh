@@ -82,7 +82,12 @@ final class EventBuffer
                     return;
                 } catch (\Throwable $e) {
                     Silencer::report($e);
-                    // Fallback: try sync send so events are not lost silently without attempt.
+                    // In Octane or any web request, NEVER fall back to synchronous network send.
+                    // A broken queue driver must never cascade into freezing HTTP worker threads.
+                    if (function_exists('app') && (app()->bound('octane') || ! app()->runningInConsole())) {
+                        return;
+                    }
+                    // Fallback for CLI only: try sync send so events are not lost silently without attempt.
                 }
             }
 

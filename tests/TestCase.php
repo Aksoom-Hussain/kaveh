@@ -21,6 +21,18 @@ abstract class TestCase extends Orchestra
     /** @var list<array<string, mixed>> Guzzle history container for the faked transport. */
     protected array $transportHistory = [];
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        RemoteTransport::resetCircuitBreaker();
+    }
+
+    protected function tearDown(): void
+    {
+        RemoteTransport::resetCircuitBreaker();
+        parent::tearDown();
+    }
+
     protected function getPackageProviders($app): array
     {
         return [KavehServiceProvider::class];
@@ -41,6 +53,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('kaveh.debug', false);
         $app['config']->set('kaveh.batch.use_queue', false);
         $app['config']->set('kaveh.batch.size', 50);
+        $app['config']->set('kaveh.circuit_breaker.enabled', false);
         // Watchers are registered explicitly by the tests that exercise them.
         $app['config']->set('kaveh.watchers', []);
     }
