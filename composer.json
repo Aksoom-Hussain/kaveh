@@ -20,7 +20,6 @@
         "illuminate/routing": "^11.0|^12.0|^13.0",
         "illuminate/view": "^11.0|^12.0|^13.0",
         "illuminate/auth": "^11.0|^12.0|^13.0",
-        "illuminate/foundation": "^11.0|^12.0|^13.0",
         "illuminate/events": "^11.0|^12.0|^13.0",
         "illuminate/cache": "^11.0|^12.0|^13.0",
         "illuminate/mail": "^11.0|^12.0|^13.0",
